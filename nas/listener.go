@@ -2,15 +2,9 @@ package nas
 
 import (
 	"bufio"
-	"errors"
 	"io"
 	"net"
-	"net/http"
 	"strings"
-	"wwfc/common"
-	"wwfc/logging"
-
-	"github.com/logrusorgru/aurora/v3"
 )
 
 type httpListener struct {
@@ -54,23 +48,6 @@ func (l *httpListener) Accept() (net.Conn, error) {
 	}, nil
 }
 
-func listenAndServe() {
-	logging.Notice("NAS", "Starting HTTP server on", aurora.BrightCyan(server.Addr))
-
-	l, err := net.Listen("tcp", server.Addr)
-	common.ShouldNotError(err)
-	listener := &httpListener{Listener: l}
-
-	defer func() {
-		common.ShouldNotError(listener.Close())
-	}()
-
-	err = server.Serve(listener)
-	if err != nil && !errors.Is(err, http.ErrServerClosed) {
-		panic(err)
-	}
-}
-
 type tlsListener struct {
 	net.Listener
 }
@@ -99,23 +76,6 @@ func (l *tlsListener) Accept() (net.Conn, error) {
 		Conn: &tlsConn,
 		in:   pr,
 	}, nil
-}
-
-func listenAndServeTLS() {
-	logging.Notice("NAS", "Starting HTTPS server on", aurora.BrightCyan(tlsServer.Addr))
-
-	l, err := net.Listen("tcp", tlsServer.Addr)
-	common.ShouldNotError(err)
-	listener := &tlsListener{Listener: l}
-
-	defer func() {
-		common.ShouldNotError(listener.Close())
-	}()
-
-	err = tlsServer.Serve(listener)
-	if err != nil && !errors.Is(err, http.ErrServerClosed) {
-		panic(err)
-	}
 }
 
 // filterDuplicateHost wraps a net.Conn and filters out duplicate Host headers from the HTTP request,

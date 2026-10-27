@@ -2,7 +2,6 @@ package common
 
 import (
 	"os"
-	"path/filepath"
 	"strings"
 	"testing"
 )
@@ -10,32 +9,29 @@ import (
 func useTemporaryConfig(t *testing.T, contents string, mode os.FileMode) string {
 	t.Helper()
 
-	oldDirectory, err := os.Getwd()
-	if err != nil {
-		t.Fatal(err)
-	}
+	oldDataPath := DataPath()
 	oldConfig, oldLoaded := config, configLoaded
 	directory := t.TempDir()
-	if err := os.Chdir(directory); err != nil {
+	if err := SetDataPath(directory); err != nil {
 		t.Fatal(err)
 	}
 	t.Cleanup(func() {
+		if err := SetDataPath(oldDataPath); err != nil {
+			t.Errorf("restore data directory: %v", err)
+		}
 		config = oldConfig
 		configLoaded = oldLoaded
-		if err := os.Chdir(oldDirectory); err != nil {
-			t.Errorf("restore working directory: %v", err)
-		}
 	})
 
 	if contents != "" {
-		if err := os.WriteFile("config.xml", []byte(contents), mode); err != nil {
+		if err := os.WriteFile(ConfigPath(), []byte(contents), mode); err != nil {
 			t.Fatal(err)
 		}
-		if err := os.Chmod("config.xml", mode); err != nil {
+		if err := os.Chmod(ConfigPath(), mode); err != nil {
 			t.Fatal(err)
 		}
 	}
-	return filepath.Join(directory, "config.xml")
+	return ConfigPath()
 }
 
 func TestApplyConfigChangesSurvivesReload(t *testing.T) {

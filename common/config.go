@@ -26,6 +26,11 @@ type Config struct {
 	NASAddressHTTPS      *string `xml:"nasAddressHttps,omitempty"`
 	NASPortHTTPS         string  `xml:"nasPortHttps"`
 	PayloadServerAddress string  `xml:"payloadServerAddress"`
+	LocalDomain          string  `xml:"localDomain"`
+	LANAddress           string  `xml:"lanAddress"`
+	DNSAddress           string  `xml:"dnsAddress"`
+	DNSUpstream          string  `xml:"dnsUpstream"`
+	AllowUnsafeBind      bool    `xml:"allowUnsafeBind"`
 
 	FrontendAddress        string `xml:"frontendAddress"`
 	FrontendBackendAddress string `xml:"frontendBackendAddress"`
@@ -73,92 +78,86 @@ var (
 )
 
 func GetConfig() Config {
+	config, err := LoadConfig()
+	if err != nil {
+		panic(err)
+	}
+	return config
+}
+
+func LoadConfig() (Config, error) {
 	cmutex.Lock()
 	defer cmutex.Unlock()
 
 	if configLoaded {
-		return config
+		return config, nil
 	}
-
-	data, err := os.ReadFile("config.xml")
+	data, err := os.ReadFile(ConfigPath())
 	if err != nil {
-		panic(err)
+		return Config{}, err
 	}
-
-	config.AllowDefaultDolphinKeys = true
-	config.AllowMultipleDeviceIDs = "never"
-	config.AllowConnectWithoutDeviceID = false
-	config.ServerName = "WiiLink"
-
-	err = xml.Unmarshal(data, &config)
-	if err != nil {
-		panic(err)
+	loaded := Config{
+		AllowDefaultDolphinKeys: true,
+		AllowMultipleDeviceIDs:  "never",
+		ServerName:              "mkwfc",
+		LocalDomain:             "mkwfc.lan",
 	}
-
-	if config.GameSpyAddress == nil {
-		config.GameSpyAddress = &config.DefaultAddress
+	if err := xml.Unmarshal(data, &loaded); err != nil {
+		return Config{}, err
 	}
-
-	if config.NASAddress == nil {
-		config.NASAddress = &config.DefaultAddress
+	if loaded.GameSpyAddress == nil {
+		loaded.GameSpyAddress = &loaded.DefaultAddress
 	}
-
-	if config.NASAddressHTTPS == nil {
-		if config.NASAddress != nil {
-			config.NASAddressHTTPS = config.NASAddress
-		} else {
-			config.NASAddressHTTPS = &config.DefaultAddress
-		}
+	if loaded.NASAddress == nil {
+		loaded.NASAddress = &loaded.DefaultAddress
 	}
-
-	if config.EnableHTTPSExploitWii == nil {
+	if loaded.NASAddressHTTPS == nil {
+		loaded.NASAddressHTTPS = loaded.NASAddress
+	}
+	if loaded.EnableHTTPSExploitWii == nil {
 		enable := true
-		config.EnableHTTPSExploitWii = &enable
+		loaded.EnableHTTPSExploitWii = &enable
 	}
-
-	if config.EnableHTTPSExploitDS == nil {
-		enable := true
-		config.EnableHTTPSExploitDS = &enable
+	if loaded.EnableHTTPSExploitDS == nil {
+		enable := false
+		loaded.EnableHTTPSExploitDS = &enable
 	}
-
-	if config.LogLevel == nil {
+	if loaded.LogLevel == nil {
 		level := 4
-		config.LogLevel = &level
+		loaded.LogLevel = &level
 	}
-
-	if config.LogOutput == "" {
-		config.LogOutput = "StdOutAndFile"
+	if loaded.LogOutput == "" {
+		loaded.LogOutput = "StdOutAndFile"
 	}
-
-	if config.FrontendAddress == "" {
-		config.FrontendAddress = "127.0.0.1:29998"
+	if loaded.FrontendAddress == "" {
+		loaded.FrontendAddress = "127.0.0.1:29998"
 	}
-
-	if config.BackendAddress == "" {
-		config.BackendAddress = "127.0.0.1:29999"
+	if loaded.BackendAddress == "" {
+		loaded.BackendAddress = "127.0.0.1:29999"
 	}
-
-	if config.FrontendBackendAddress == "" {
-		config.FrontendBackendAddress = config.BackendAddress
+	if loaded.FrontendBackendAddress == "" {
+		loaded.FrontendBackendAddress = loaded.BackendAddress
 	}
-
-	if config.BackendFrontendAddress == "" {
-		config.BackendFrontendAddress = config.FrontendAddress
+	if loaded.BackendFrontendAddress == "" {
+		loaded.BackendFrontendAddress = loaded.FrontendAddress
 	}
-
-	if config.AdminAddress == "" {
-		config.AdminAddress = "127.0.0.1:29990"
+	if loaded.AdminAddress == "" {
+		loaded.AdminAddress = "127.0.0.1:29990"
 	}
-
-	if config.DatabasePath == "" {
-		config.DatabasePath = "mkwfc.db"
+	if loaded.DatabasePath == "" {
+		loaded.DatabasePath = "mkwfc.db"
 	}
-
-	config.AllowMultipleDeviceIDs = normalizeMultipleDeviceIDs(config.AllowMultipleDeviceIDs)
-
+	if loaded.LANAddress == "" {
+		loaded.LANAddress = loaded.DefaultAddress
+	}
+	if loaded.DNSAddress == "" {
+		loaded.DNSAddress = loaded.LANAddress + ":53"
+	}
+	loaded.AllowMultipleDeviceIDs = normalizeMultipleDeviceIDs(loaded.AllowMultipleDeviceIDs)
+	ResolveConfigPaths(&loaded)
+	config = loaded
 	configLoaded = true
-
-	return config
+	return config, nil
 }
 
 func normalizeMultipleDeviceIDs(value string) string {

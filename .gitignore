@@ -12,8 +12,8 @@ profanity.txt
 # Logs
 logs
 
-# Payload data
-payload
+# Payload data (runtime dir at repo root only; must not match internal/payload source)
+/payload/
 
 # Reload state
 state

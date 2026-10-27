@@ -311,7 +311,7 @@ func GetSearchID(addr uint64) uint64 {
 
 // Save the sessions to a file. Expects the mutex to be locked.
 func saveSessions() error {
-	file, err := os.OpenFile("state/qr2_sessions.gob", os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0644)
+	file, err := os.OpenFile(common.DataPath("state/qr2_sessions.gob"), os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0644)
 	if err != nil {
 		return err
 	}
@@ -325,7 +325,7 @@ func saveSessions() error {
 
 // Load the sessions from a file. Expects the mutex to be locked.
 func loadSessions() error {
-	file, err := os.Open("state/qr2_sessions.gob")
+	file, err := os.Open(common.DataPath("state/qr2_sessions.gob"))
 	if err != nil {
 		return err
 	}

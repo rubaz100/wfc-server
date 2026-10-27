@@ -42,7 +42,7 @@ func StartServer(reload bool) {
 	}
 
 	// Load connection state
-	file, err := os.Open("state/sb_connections.gob")
+	file, err := os.Open(common.DataPath("state/sb_connections.gob"))
 	common.ShouldNotError(err)
 	defer func() {
 		common.ShouldNotError(file.Close())
@@ -56,7 +56,7 @@ func StartServer(reload bool) {
 
 func Shutdown() {
 	// Save connection state
-	file, err := os.OpenFile("state/sb_connections.gob", os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0644)
+	file, err := os.OpenFile(common.DataPath("state/sb_connections.gob"), os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0644)
 	common.ShouldNotError(err)
 	defer func() {
 		common.ShouldNotError(file.Close())

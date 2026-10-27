@@ -75,7 +75,7 @@ func ApplyConfigChanges(fields map[string]string) error {
 		}
 	}
 
-	if err := writeConfigFields("config.xml", fields); err != nil {
+	if err := writeConfigFields(ConfigPath(), fields); err != nil {
 		return err
 	}
 

@@ -16,14 +16,6 @@ const (
 
 type FileRequest int
 
-var fileDownloadHandlers = map[int]func(string, http.ResponseWriter, *http.Request){
-	common.GetGameIDOrPanic("mariokartwii"): handleMarioKartWiiFileDownloadRequest,
-}
-
-var fileUploadHandlers = map[int]func(string, http.ResponseWriter, *http.Request){
-	common.GetGameIDOrPanic("mariokartwii"): handleMarioKartWiiFileUploadRequest,
-}
-
 func handleFileDownloadRequest(w http.ResponseWriter, r *http.Request) {
 	moduleName := "SAKE:File:" + r.RemoteAddr
 
@@ -33,14 +25,11 @@ func handleFileDownloadRequest(w http.ResponseWriter, r *http.Request) {
 		logging.Error(moduleName, "Invalid GameSpy game ID:", aurora.Cyan(gameIdString))
 		return
 	}
-
-	handler, handlerExists := fileDownloadHandlers[gameId]
-	if !handlerExists {
+	if gameId != common.GetGameID("mariokartwii") {
 		logging.Warn(moduleName, "Unhandled file download request for GameSpy game ID:", aurora.Cyan(gameId))
 		return
 	}
-
-	handler(moduleName, w, r)
+	handleMarioKartWiiFileDownloadRequest(moduleName, w, r)
 }
 
 func handleFileUploadRequest(w http.ResponseWriter, r *http.Request) {
@@ -52,12 +41,9 @@ func handleFileUploadRequest(w http.ResponseWriter, r *http.Request) {
 		logging.Error(moduleName, "Invalid GameSpy game ID:", aurora.Cyan(gameIdString))
 		return
 	}
-
-	handler, handlerExists := fileUploadHandlers[gameId]
-	if !handlerExists {
+	if gameId != common.GetGameID("mariokartwii") {
 		logging.Warn(moduleName, "Unhandled file upload request for GameSpy game ID:", aurora.Cyan(gameId))
 		return
 	}
-
-	handler(moduleName, w, r)
+	handleMarioKartWiiFileUploadRequest(moduleName, w, r)
 }

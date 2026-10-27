@@ -20,6 +20,12 @@ func SetLevel(level int) {
 	logLevel = level
 }
 
+func SetLogDir(path string) {
+	if path != "" {
+		logDir = path
+	}
+}
+
 func SetOutput(output string) error {
 	switch output {
 	case "None":
@@ -31,10 +37,8 @@ func SetOutput(output string) error {
 			return err
 		}
 
-		time := time.Now()
-		logFilePath := time.Format(logDir + "/2006-01-02-15-04-05.log")
-
-		file, err := os.OpenFile(logFilePath, os.O_WRONLY|os.O_CREATE, 0400)
+		logFilePath := time.Now().Format(logDir + "/2006-01-02-15-04-05.000000000.log")
+		file, err := os.OpenFile(logFilePath, os.O_WRONLY|os.O_CREATE|os.O_EXCL|os.O_APPEND, 0600)
 		if err != nil {
 			return err
 		}

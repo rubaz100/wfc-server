@@ -22,40 +22,46 @@ var server *http.Server
 // StartServer starts the Host Manager: the embedded web panel plus the admin
 // API, on config.AdminAddress (127.0.0.1 or LAN, depending on config).
 func StartServer(reload bool) {
+	if err := StartServerWithListener(reload, nil); err != nil {
+		logging.Error("ADMIN", "HTTP server error:", err)
+	}
+}
+
+func StartServerWithListener(reload bool, listener net.Listener) error {
 	config := common.GetConfig()
 	address := config.AdminAddress
-
+	if listener != nil {
+		address = listener.Addr().String()
+	}
 	mux := http.NewServeMux()
 	api.RegisterExtendedHandlers(mux)
-
 	sub, err := fs.Sub(webFS, "web")
 	if err != nil {
-		logging.Error("ADMIN", "Failed to load embedded web UI:", err)
-		return
+		return err
 	}
 	mux.Handle("/", http.FileServer(http.FS(sub)))
-
 	server = &http.Server{
-		Addr:         address,
-		Handler:      mux,
-		IdleTimeout:  20 * time.Second,
-		ReadTimeout:  10 * time.Second,
-		WriteTimeout: 30 * time.Second,
+		Addr: address, Handler: mux, IdleTimeout: 20 * time.Second,
+		ReadTimeout: 10 * time.Second, WriteTimeout: 30 * time.Second,
 	}
-
+	if listener == nil {
+		listener, err = net.Listen("tcp", address)
+		if err != nil {
+			return err
+		}
+	}
 	urls := panelURLs(address)
-
 	go func() {
 		logging.Notice("ADMIN", "Host Manager panel ready:")
 		for _, u := range urls {
 			logging.Notice("ADMIN", "    ", aurora.BrightCyan(u))
 		}
 		logging.Notice("ADMIN", "Sign in with the apiSecret from config.xml")
-
-		if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+		if err := server.Serve(listener); err != nil && err != http.ErrServerClosed {
 			logging.Error("ADMIN", "HTTP server error:", err)
 		}
 	}()
+	return nil
 }
 
 // panelURLs returns the http URL(s) the admin panel is reachable at for the

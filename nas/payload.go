@@ -16,17 +16,35 @@ import (
 	"os"
 	"strconv"
 	"time"
+	"wwfc/common"
 	"wwfc/logging"
 
 	"github.com/logrusorgru/aurora/v3"
 )
 
+type PayloadService interface {
+	http.Handler
+	Stage1(int) ([]byte, bool)
+}
+
+var embeddedPayload PayloadService
+
 func downloadStage1(w http.ResponseWriter, r *http.Request) {
 	ver := r.URL.Path[len(r.URL.Path)-1] - '0'
-
-	path := "payload/stage1.bin"
+	if embeddedPayload != nil {
+		payload, exists := embeddedPayload.Stage1(int(ver))
+		if !exists {
+			replyHTTPError(w, http.StatusNotFound, "404 Not Found")
+			return
+		}
+		w.Header().Set("Content-Type", "text/plain")
+		w.Header().Set("Content-Length", strconv.Itoa(len(payload)))
+		_, _ = w.Write(payload)
+		return
+	}
+	path := common.DataPath("payload/stage1.bin")
 	if ver != 0 {
-		path = "payload/stage1v" + strconv.Itoa(int(ver)) + ".bin"
+		path = common.DataPath("payload/stage1v" + strconv.Itoa(int(ver)) + ".bin")
 	}
 	dat, err := os.ReadFile(path)
 	if err != nil {

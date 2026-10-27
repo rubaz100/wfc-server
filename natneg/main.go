@@ -88,21 +88,26 @@ var (
 )
 
 func StartServer(reload bool) {
-	// Get config
-	config := common.GetConfig()
-
-	address := *config.GameSpyAddress + ":27901"
-	conn, err := net.ListenPacket("udp", address)
-	if err != nil {
+	if err := StartServerWithPacketConn(reload, nil); err != nil {
 		panic(err)
 	}
+}
 
+func StartServerWithPacketConn(reload bool, conn net.PacketConn) error {
+	config := common.GetConfig()
+	if conn == nil {
+		var err error
+		conn, err = net.ListenPacket("udp", *config.GameSpyAddress+":27901")
+		if err != nil {
+			return err
+		}
+	}
 	natnegConn = conn
 	inShutdown.Store(false)
 
 	if reload {
 		// Load state
-		file, err := os.Open("state/natneg_sessions.gob")
+		file, err := os.Open(common.DataPath("state/natneg_sessions.gob"))
 		if err != nil {
 			panic(err)
 		}
@@ -124,60 +129,47 @@ func StartServer(reload bool) {
 	}
 
 	waitGroup.Add(1)
-
 	go func() {
 		defer waitGroup.Done()
-
-		// Close the listener when the application closes.
-		defer func() {
-			_ = conn.Close()
-		}()
-		logging.Notice("NATNEG", "Listening on", aurora.BrightCyan(address))
-
+		defer conn.Close()
+		logging.Notice("NATNEG", "Listening on", aurora.BrightCyan(conn.LocalAddr().String()))
 		for {
 			if inShutdown.Load() {
 				return
 			}
-
-			buffer := make([]byte, 1024)
+			buffer := make([]byte, 2048)
 			size, addr, err := conn.ReadFrom(buffer)
 			if err != nil {
-				continue
+				return
 			}
-
-			waitGroup.Add(1)
-
-			go handleConnection(conn, addr, buffer[:size])
+			handleConnection(conn, addr, buffer[:size])
 		}
 	}()
+	return nil
 }
 
 func Shutdown() {
+	if natnegConn == nil {
+		return
+	}
 	inShutdown.Store(true)
-	common.ShouldNotError(natnegConn.Close())
+	_ = natnegConn.Close()
 	waitGroup.Wait()
-
-	// Save state
+	natnegConn = nil
 	mutex.Lock()
 	defer mutex.Unlock()
-
-	file, err := os.OpenFile("state/natneg_sessions.gob", os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0644)
+	file, err := os.OpenFile(common.DataPath("state/natneg_sessions.gob"), os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0644)
 	if err != nil {
-		panic(err)
+		logging.Error("NATNEG", "Failed to save state:", err)
+		return
 	}
-	defer func() {
-		common.ShouldNotError(file.Close())
-	}()
-
-	encoder := gob.NewEncoder(file)
-	common.ShouldNotError(encoder.Encode(sessions))
-
-	logging.Notice("NATNEG", "Saved", aurora.Cyan(len(sessions)), "sessions")
+	defer file.Close()
+	if err := gob.NewEncoder(file).Encode(sessions); err != nil {
+		logging.Error("NATNEG", "Failed to save state:", err)
+	}
 }
 
 func handleConnection(conn net.PacketConn, addr net.Addr, buffer []byte) {
-	defer waitGroup.Done()
-
 	// Validate the packet magic
 	if len(buffer) < 12 || !bytes.Equal(buffer[:6], []byte{0xfd, 0xfc, 0x1e, 0x66, 0x6a, 0xb2}) {
 		logging.Error("NATNEG:"+addr.String(), "Invalid packet header")

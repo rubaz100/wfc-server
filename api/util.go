@@ -1,6 +1,8 @@
 package api
 
 import (
+	"bytes"
+	"crypto/subtle"
 	"encoding/json"
 	"errors"
 	"io"
@@ -105,22 +107,27 @@ func parsePost(r *http.Request, w http.ResponseWriter, parsed any, requiredRole 
 		return errIncorrectMethod
 	}
 
-	jsonData, err := io.ReadAll(r.Body)
-	if err != nil {
+	jsonData, err := io.ReadAll(io.LimitReader(r.Body, 1<<20+1))
+	if err != nil || len(jsonData) > 1<<20 {
+		w.WriteHeader(http.StatusBadRequest)
+		if err == nil {
+			err = errors.New("request body exceeds 1 MiB")
+		}
+		return err
+	}
+	decoder := json.NewDecoder(bytes.NewReader(jsonData))
+	decoder.DisallowUnknownFields()
+	if err = decoder.Decode(parsed); err != nil {
 		w.WriteHeader(http.StatusBadRequest)
 		return err
 	}
-
-	err = json.Unmarshal(jsonData, parsed)
-	if err != nil {
+	if decoder.Decode(&struct{}{}) != io.EOF {
 		w.WriteHeader(http.StatusBadRequest)
-		return err
+		return errors.New("multiple JSON values in request")
 	}
-
 	if requiredRole == RoleNone {
 		return nil
 	}
-
 	authInfo, ok := reflect.ValueOf(parsed).Elem().FieldByName("AuthInfo").Interface().(AuthInfo)
 	if !ok {
 		w.WriteHeader(http.StatusInternalServerError)
@@ -140,7 +147,10 @@ func makeAuthInfo(query url.Values) AuthInfo {
 }
 
 func authenticate(authInfo AuthInfo, requiredRole Role) bool {
-	return requiredRole == RoleNone || authInfo.Secret == apiSecret
+	if requiredRole == RoleNone {
+		return true
+	}
+	return len(apiSecret) >= 16 && subtle.ConstantTimeCompare([]byte(authInfo.Secret), []byte(apiSecret)) == 1
 }
 
 func replyError(w http.ResponseWriter, statusCode int, errMsg APIErrorString) {

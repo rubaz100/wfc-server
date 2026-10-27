@@ -34,6 +34,9 @@ func ConnectFrontend() {
 
 // SendPacket is used by backend servers to send a packet to a connection
 func SendPacket(server string, index uint64, data []byte) error {
+	if transport := currentDirectTransport.Load(); transport != nil {
+		return transport.SendPacket(server, index, data)
+	}
 	if rpcFrontend == nil {
 		ConnectFrontend()
 	}
@@ -47,6 +50,9 @@ func SendPacket(server string, index uint64, data []byte) error {
 
 // CloseConnection is used by backend servers to close a connection
 func CloseConnection(server string, index uint64) error {
+	if transport := currentDirectTransport.Load(); transport != nil {
+		return transport.CloseConnection(server, index)
+	}
 	if rpcFrontend == nil {
 		ConnectFrontend()
 	}

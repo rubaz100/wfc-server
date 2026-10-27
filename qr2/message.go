@@ -377,9 +377,15 @@ func sendClientExploit(moduleName string, sessionCopy Session) {
 		return
 	}
 
-	exploit, err := os.ReadFile("payload/sbcm/" + "payload." + sessionCopy.login.GameCode + ".bin")
-	if err != nil {
-		logging.Error(moduleName, "Error reading exploit file", aurora.Cyan(sessionCopy.login.GameCode), "-", err.Error())
+	var exploit []byte
+	var err error
+	if exploitProvider != nil {
+		exploit, err = exploitProvider(sessionCopy.login.GameCode)
+	} else {
+		exploit, err = os.ReadFile(common.DataPath("payload/sbcm/payload." + sessionCopy.login.GameCode + ".bin"))
+	}
+	if err != nil || len(exploit) < 0xb {
+		logging.Error(moduleName, "Error reading exploit file", aurora.Cyan(sessionCopy.login.GameCode), "-", err)
 		return
 	}
 

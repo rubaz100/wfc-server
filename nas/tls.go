@@ -18,7 +18,6 @@ import (
 	"io"
 	"net"
 	"os"
-	"time"
 	"wwfc/common"
 	"wwfc/logging"
 
@@ -40,58 +39,42 @@ var (
 	realTLSConfig        *tls.Config
 )
 
-func setupTLS(config common.Config) {
-	privKeyPath := config.KeyPath
-	certsPath := config.CertPath
-	exploitWii := *config.EnableHTTPSExploitWii
-	exploitDS := *config.EnableHTTPSExploitDS
-
-	setupRealTLS(privKeyPath, certsPath)
-	// Reread the private key and certs on a regular interval
-	go func() {
-		for {
-			time.Sleep(24 * time.Hour)
-			setupRealTLS(privKeyPath, certsPath)
+func setupTLS(config common.Config) (err error) {
+	defer func() {
+		if recovered := recover(); recovered != nil {
+			err = fmt.Errorf("TLS certificate setup: %v", recovered)
 		}
 	}()
-
-	// Handle requests from Wii, DS and regular TLS
-
-	if exploitWii {
+	realTLSConfig = nil
+	rsaKeyWii = nil
+	rsaKeyDS = nil
+	if err := setupRealTLS(config.KeyPath, config.CertPath); err != nil {
+		return err
+	}
+	if config.EnableHTTPSExploitWii != nil && *config.EnableHTTPSExploitWii {
 		setupExploitWii(config)
 	}
-
-	if exploitDS {
+	if config.EnableHTTPSExploitDS != nil && *config.EnableHTTPSExploitDS {
 		setupExploitDS(config)
 	}
+	return nil
 }
 
-func setupRealTLS(privKeyPath string, certsPath string) {
-	// Read server key and certs
-
+func setupRealTLS(privKeyPath string, certsPath string) error {
 	serverKey, err := os.ReadFile(privKeyPath)
 	if err != nil {
-		logging.Error("NAS-TLS", "Failed to read server key:", err)
-		return
+		return fmt.Errorf("read modern TLS private key: %w", err)
 	}
-
 	serverCerts, err := os.ReadFile(certsPath)
 	if err != nil {
-		logging.Error("NAS-TLS", "Failed to read server certs:", err)
-		return
+		return fmt.Errorf("read modern TLS certificate: %w", err)
 	}
-
 	cert, err := tls.X509KeyPair(serverCerts, serverKey)
 	if err != nil {
-		logging.Error("NAS-TLS", "Failed to parse server certs:", err)
-		return
+		return fmt.Errorf("parse modern TLS key pair: %w", err)
 	}
-
-	config := tls.Config{
-		Certificates: []tls.Certificate{cert},
-	}
-
-	realTLSConfig = &config
+	realTLSConfig = &tls.Config{Certificates: []tls.Certificate{cert}, MinVersion: tls.VersionTLS12}
+	return nil
 }
 
 func setupExploitWii(config common.Config) {
@@ -298,7 +281,12 @@ func (c *tlsConnection) handleTLSHandshake() (err error) {
 		peekMatchDS = err == nil
 	}
 
-	if rsaKeyWii != nil && err == errUnexpectedBytes {
+	// Peek for the Wii ClientHello whenever the DS exploit did not already
+	// claim the connection. When the DS exploit is disabled (rsaKeyDS == nil)
+	// no DS peek runs, so err is still nil here; without this the switch below
+	// would fall through to "invalid TLS handshake result" and close every
+	// HTTPS connection (including a real Wii's) whenever DS is off.
+	if rsaKeyWii != nil && !peekMatchDS && (err == nil || err == errUnexpectedBytes) {
 		consumed, err = readBytes(c.Conn, wiiClientHelloPrefix, consumed)
 		peekMatchWii = err == nil
 	}

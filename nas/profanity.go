@@ -11,7 +11,8 @@ import (
 	"wwfc/common"
 )
 
-var profanityFilePath = "./profanity.txt"
+func profanityPath() string { return common.DataPath("profanity.txt") }
+
 var profanityFileLines []string = nil
 var lastModTime time.Time
 
@@ -28,7 +29,7 @@ var symbolEquivalences = map[rune]rune{
 }
 
 func CacheProfanityFile() error {
-	fileInfo, err := os.Stat(profanityFilePath)
+	fileInfo, err := os.Stat(profanityPath())
 	if err != nil {
 		return err
 	}
@@ -37,7 +38,7 @@ func CacheProfanityFile() error {
 		return nil
 	}
 
-	file, err := os.Open(profanityFilePath)
+	file, err := os.Open(profanityPath())
 	if err != nil {
 		return err
 	}
@@ -58,7 +59,7 @@ func CacheProfanityFile() error {
 	}
 
 	if profanityFileLines == nil {
-		return errors.New("the file '" + profanityFilePath + "' is empty")
+		return errors.New("the file '" + profanityPath() + "' is empty")
 	}
 
 	lastModTime = fileInfo.ModTime()
@@ -81,7 +82,7 @@ func IsBadWord(word string) (bool, error) {
 	if !isProfanityFileCached() {
 		err := CacheProfanityFile()
 		if err != nil {
-			return false, errors.New("the file '" + profanityFilePath + "' has not been cached")
+			return false, errors.New("the file '" + profanityPath() + "' has not been cached")
 		}
 
 	}
@@ -97,7 +98,7 @@ func IsBadWord(word string) (bool, error) {
 }
 
 func isProfanityFileCached() bool {
-	fileInfo, err := os.Stat(profanityFilePath)
+	fileInfo, err := os.Stat(profanityPath())
 	if err != nil {
 		return false
 	}

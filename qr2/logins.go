@@ -68,7 +68,7 @@ func Logout(profileID uint32) {
 
 // Save logins to a file. Expects the mutex to be locked.
 func saveLogins() error {
-	file, err := os.OpenFile("state/qr2_logins.gob", os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0644)
+	file, err := os.OpenFile(common.DataPath("state/qr2_logins.gob"), os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0644)
 	if err != nil {
 		return err
 	}
@@ -82,7 +82,7 @@ func saveLogins() error {
 
 // Load logins from a file. Expects the mutex to be locked, and the sessions to already be loaded.
 func loadLogins() error {
-	file, err := os.Open("state/qr2_logins.gob")
+	file, err := os.Open(common.DataPath("state/qr2_logins.gob"))
 	if err != nil {
 		return err
 	}

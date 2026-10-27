@@ -57,7 +57,7 @@ func StartServer(reload bool) {
 
 	if reload {
 		// Load state
-		file, err := os.Open("state/gstats_sessions.gob")
+		file, err := os.Open(common.DataPath("state/gstats_sessions.gob"))
 		if err != nil {
 			panic(err)
 		}
@@ -84,7 +84,7 @@ func StartServer(reload bool) {
 
 func Shutdown() {
 	// Save state
-	file, err := os.OpenFile("state/gstats_sessions.gob", os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0644)
+	file, err := os.OpenFile(common.DataPath("state/gstats_sessions.gob"), os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0644)
 	common.ShouldNotError(err)
 	defer func() {
 		common.ShouldNotError(file.Close())

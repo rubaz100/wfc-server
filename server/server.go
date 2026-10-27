@@ -1,8 +1,5 @@
-// Package server holds the wfc-server process entrypoint and its frontend/
-// backend dispatch, extracted from the original main.go so it can be called by
-// a single-binary mkwfc wrapper as well as by the standalone wwfc binary.
-// The frontend still starts a separate backend process; single-process dispatch
-// remains separate work. See FORK-NOTES.md.
+// Package server provides the legacy frontend/backend wwfc launcher and the
+// direct single-process runtime used by mkwfc.
 package server
 
 import (
@@ -93,8 +90,7 @@ func connectAndLogEvent(eventType string) {
 func backendMain(noSignal, noReload bool) {
 	config.RegisterWebhooks()
 
-	err := os.Mkdir("state", 0755)
-	if err != nil && !os.IsExist(err) {
+	if err := os.MkdirAll(common.DataPath("state"), 0700); err != nil {
 		panic(err)
 	}
 

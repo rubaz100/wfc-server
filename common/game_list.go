@@ -1,7 +1,9 @@
 package common
 
 import (
+	"bytes"
 	"encoding/csv"
+	"io"
 	"os"
 	"strconv"
 	"strings"
@@ -19,11 +21,22 @@ type GameInfo struct {
 
 var (
 	gameList           []GameInfo
+	gameListData       []byte
 	readGameList       = false
 	gameListIDLookup   = map[int]int{}
 	gameListNameLookup = map[string]int{}
 	mutex              = sync.RWMutex{}
 )
+
+func SetGameList(data []byte) {
+	mutex.Lock()
+	defer mutex.Unlock()
+	gameListData = append([]byte(nil), data...)
+	gameList = nil
+	gameListIDLookup = map[int]int{}
+	gameListNameLookup = map[string]int{}
+	readGameList = false
+}
 
 func GetGameInfoByID(gameId int) *GameInfo {
 	ReadGameList()
@@ -77,12 +90,20 @@ func ReadGameList() {
 		return
 	}
 
-	file, err := os.Open("game_list.tsv")
-	if err != nil {
-		panic(err)
+	var input io.Reader
+	if gameListData != nil {
+		input = bytes.NewReader(gameListData)
+	} else {
+		file, err := os.Open(DataPath("game_list.tsv"))
+		if err != nil {
+			panic(err)
+		}
+		defer func() {
+			_ = file.Close()
+		}()
+		input = file
 	}
-
-	reader := csv.NewReader(file)
+	reader := csv.NewReader(input)
 	reader.Comma = '\t'
 	csvList, err := reader.ReadAll()
 	if err != nil {

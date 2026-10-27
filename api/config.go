@@ -87,6 +87,10 @@ func handleSetConfig(w http.ResponseWriter, r *http.Request) {
 	fields := map[string]string{}
 
 	if req.ServerName != nil {
+		if len(*req.ServerName) == 0 || len(*req.ServerName) > 128 {
+			replyError(w, http.StatusBadRequest, APIErrorInvalidQuery)
+			return
+		}
 		fields["serverName"] = *req.ServerName
 	}
 	if req.AllowDefaultDolphinKeys != nil {

@@ -37,117 +37,90 @@ var (
 )
 
 func StartServer(reload bool) {
-	// Get config
-	config := common.GetConfig()
-
-	address := *config.GameSpyAddress + ":27900"
-	conn, err := net.ListenPacket("udp", address)
-	if err != nil {
+	if err := StartServerWithPacketConn(reload, nil); err != nil {
 		panic(err)
 	}
+}
 
-	// Connect to database for event logging
+func StartServerWithPacketConn(reload bool, conn net.PacketConn) error {
+	config := common.GetConfig()
+	if conn == nil {
+		var err error
+		conn, err = net.ListenPacket("udp", *config.GameSpyAddress+":27900")
+		if err != nil {
+			return err
+		}
+	}
 	if config.EventReporting.LogToDatabase {
 		db := database.Start(config)
 		db.RegisterEvents(config, []string{
-			"group_created",
-			"group_deleted",
-			"group_joined",
-			"group_left",
-			"group_host_changed",
-			"natneg_succeeded",
-			"natneg_failed",
+			"group_created", "group_deleted", "group_joined", "group_left",
+			"group_host_changed", "natneg_succeeded", "natneg_failed",
 		})
 	}
-
 	masterConn = conn
 	inShutdown.Store(false)
-
 	if reload {
-		err := loadSessions()
-		if err != nil {
-			panic(err)
+		if err := loadSessions(); err != nil {
+			return err
 		}
-
-		logging.Notice("QR2", "Loaded", aurora.Cyan(len(sessions)), "sessions")
-
-		err = loadLogins()
-		if err != nil {
-			panic(err)
+		if err := loadLogins(); err != nil {
+			return err
 		}
-
-		logging.Notice("QR2", "Loaded", aurora.Cyan(len(logins)), "logins")
-
-		err = loadGroups()
-		if err != nil {
-			panic(err)
+		if err := loadGroups(); err != nil {
+			return err
 		}
-
-		logging.Notice("QR2", "Loaded", aurora.Cyan(len(groups)), "groups")
+		logging.Notice("QR2", "Loaded sessions, logins and groups")
 	}
-
 	waitGroup.Add(1)
-
 	go func() {
 		defer waitGroup.Done()
-
-		// Close the listener when the application closes.
-		defer func() {
-			_ = conn.Close()
-		}()
-		logging.Notice("QR2", "Listening on", aurora.BrightCyan(address))
-
+		defer conn.Close()
+		logging.Notice("QR2", "Listening on", aurora.BrightCyan(conn.LocalAddr().String()))
 		for {
 			if inShutdown.Load() {
 				return
 			}
-
-			buf := make([]byte, 1024)
-			n, addr, err := conn.ReadFrom(buf)
-			if err != nil || n < 5 {
+			buffer := make([]byte, 2048)
+			n, address, err := conn.ReadFrom(buffer)
+			if err != nil {
+				return
+			}
+			if n < 5 {
 				continue
 			}
-
-			waitGroup.Add(1)
-
-			go handleConnection(conn, *addr.(*net.UDPAddr), buf, n)
+			addr, ok := address.(*net.UDPAddr)
+			if !ok {
+				continue
+			}
+			handleConnection(conn, *addr, buffer, n)
 		}
 	}()
+	return nil
 }
 
 func Shutdown() {
+	if masterConn == nil {
+		return
+	}
 	inShutdown.Store(true)
-	common.ShouldNotError(masterConn.Close())
+	_ = masterConn.Close()
 	waitGroup.Wait()
-
+	masterConn = nil
 	mutex.Lock()
 	defer mutex.Unlock()
-
-	err := saveSessions()
-	if err != nil {
+	if err := saveSessions(); err != nil {
 		logging.Error("QR2", "Failed to save sessions:", err)
 	}
-
-	logging.Notice("QR2", "Saved", aurora.Cyan(len(sessions)), "sessions")
-
-	err = saveLogins()
-	if err != nil {
+	if err := saveLogins(); err != nil {
 		logging.Error("QR2", "Failed to save logins:", err)
 	}
-
-	logging.Notice("QR2", "Saved", aurora.Cyan(len(logins)), "logins")
-
-	err = saveGroups()
-	if err != nil {
+	if err := saveGroups(); err != nil {
 		logging.Error("QR2", "Failed to save groups:", err)
 	}
-
-	logging.Notice("QR2", "Saved", aurora.Cyan(len(groups)), "groups")
 }
 
 func handleConnection(conn net.PacketConn, addr net.UDPAddr, buffer []byte, n int) {
-	defer waitGroup.Done()
-
 	packetType := buffer[0]
 	moduleName := "QR2:" + addr.String()
 
