@@ -1,4 +1,4 @@
-package main
+package cli
 
 import (
 	"bytes"
@@ -182,7 +182,9 @@ func checkGPCM(config common.Config) error {
 			return fmt.Errorf("unexpected GPCM challenge %q", challenge)
 		}
 	}
-	if !bytes.HasPrefix(challenge, []byte(`\lc\1\challenge\`)) {
+	// GameSpy message fields come from a Go map, so the order of \challenge\ and
+	// \id\ is not fixed; assert on the command and the challenge field's presence.
+	if !bytes.HasPrefix(challenge, []byte(`\lc\1\`)) || !bytes.Contains(challenge, []byte(`\challenge\`)) {
 		return fmt.Errorf("unexpected GPCM challenge %q", challenge)
 	}
 	return nil
