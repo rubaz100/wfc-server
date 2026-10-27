@@ -426,6 +426,13 @@ func (c *consoleTLSConn) Write(b []byte) (n int, err error) {
 	return c.Conn.Write(record)
 }
 
+func wiiClientAlert(record []byte) error {
+	if len(record) < 7 || !bytes.Equal(record[:6], []byte{0x15, 0x03, 0x01, 0x00, 0x02, 0x02}) {
+		return nil
+	}
+	return fmt.Errorf("Wii client TLS alert: %w", tls.AlertError(record[6]))
+}
+
 func handleWiiTLSHandshake(moduleName string, conn io.ReadWriter) (macFn macFunction, cipher *rc4.Cipher, clientCipher *rc4.Cipher, err error) {
 	clientHello := append(wiiClientHelloPrefix, make([]byte, 0x2D-len(wiiClientHelloPrefix))...)
 	_, err = io.ReadFull(conn, clientHello[len(wiiClientHelloPrefix):])
@@ -484,6 +491,12 @@ func handleWiiTLSHandshake(moduleName string, conn io.ReadWriter) (macFn macFunc
 		}
 
 		index += n
+
+		if alert := wiiClientAlert(buf[:index]); alert != nil {
+			logging.Error(moduleName, alert)
+			err = alert
+			return
+		}
 
 		// Check client key exchange header
 		if !bytes.HasPrefix([]byte{

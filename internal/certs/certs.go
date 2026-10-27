@@ -4,9 +4,11 @@ import (
 	"bytes"
 	"crypto/rand"
 	"crypto/rsa"
+	"crypto/sha1"
 	"crypto/tls"
 	"crypto/x509"
 	"crypto/x509/pkix"
+	"encoding/asn1"
 	"encoding/pem"
 	"fmt"
 	"math/big"
@@ -75,22 +77,9 @@ func Generate(paths Paths, domain string, lanIP net.IP, now time.Time) error {
 	if err != nil {
 		return err
 	}
-	wiiSerial, err := rand.Int(rand.Reader, new(big.Int).Lsh(big.NewInt(1), 120))
+	wiiDER, err := createWiiCertificate(wiiKey, now)
 	if err != nil {
 		return err
-	}
-	wiiTemplate := &x509.Certificate{
-		SerialNumber:       wiiSerial,
-		Subject:            pkix.Name{CommonName: "naswii.nintendowifi.net"},
-		NotBefore:          now.Add(-time.Hour),
-		NotAfter:           now.Add(20 * 365 * 24 * time.Hour),
-		KeyUsage:           x509.KeyUsageDigitalSignature | x509.KeyUsageKeyEncipherment,
-		ExtKeyUsage:        []x509.ExtKeyUsage{x509.ExtKeyUsageServerAuth},
-		SignatureAlgorithm: x509.SHA256WithRSA,
-	}
-	wiiDER, err := x509.CreateCertificate(rand.Reader, wiiTemplate, wiiTemplate, &wiiKey.PublicKey, wiiKey)
-	if err != nil {
-		return fmt.Errorf("create Wii compatibility certificate: %w", err)
 	}
 	if bytes.Count(wiiDER, originalWiiSignatureMarker) != 1 {
 		return fmt.Errorf("Wii certificate signature-area marker is missing or ambiguous")
@@ -110,6 +99,35 @@ func Generate(paths Paths, domain string, lanIP net.IP, now time.Time) error {
 		return err
 	}
 	return Validate(paths)
+}
+
+func createWiiCertificate(key *rsa.PrivateKey, now time.Time) ([]byte, error) {
+	serial, err := rand.Int(rand.Reader, new(big.Int).Lsh(big.NewInt(1), 160))
+	if err != nil {
+		return nil, err
+	}
+	const hostname = "naswii.nintendowifi.net"
+	commonName := pkix.AttributeTypeAndValue{
+		Type:  asn1.ObjectIdentifier{2, 5, 4, 3},
+		Value: asn1.RawValue{Tag: asn1.TagUTF8String, Bytes: []byte(hostname)},
+	}
+	subjectKeyID := sha1.Sum(x509.MarshalPKCS1PublicKey(&key.PublicKey))
+	template := &x509.Certificate{
+		SerialNumber:          serial,
+		Subject:               pkix.Name{CommonName: hostname, ExtraNames: []pkix.AttributeTypeAndValue{commonName}},
+		NotBefore:             now,
+		NotAfter:              now.AddDate(10, 0, 0),
+		BasicConstraintsValid: true,
+		IsCA:                  true,
+		SubjectKeyId:          subjectKeyID[:],
+		AuthorityKeyId:        subjectKeyID[:],
+		SignatureAlgorithm:    x509.SHA256WithRSA,
+	}
+	der, err := x509.CreateCertificate(rand.Reader, template, template, &key.PublicKey, key)
+	if err != nil {
+		return nil, fmt.Errorf("create Wii compatibility certificate: %w", err)
+	}
+	return der, nil
 }
 
 func writeNew(path string, data []byte, mode os.FileMode) error {

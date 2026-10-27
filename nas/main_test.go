@@ -97,6 +97,21 @@ func TestRealHTTPAndHTTPSWithInjectedPayload(t *testing.T) {
 	}
 }
 
+func TestWiiClientAlert(t *testing.T) {
+	alert := []byte{0x15, 0x03, 0x01, 0x00, 0x02, 0x02, 0x2e}
+	err := wiiClientAlert(alert)
+	want := "Wii client TLS alert: " + tls.AlertError(46).Error()
+	if err == nil || err.Error() != want {
+		t.Fatalf("alert = %v, want %q", err, want)
+	}
+	if err := wiiClientAlert(alert[:6]); err != nil {
+		t.Fatalf("partial alert: %v", err)
+	}
+	if err := wiiClientAlert([]byte{0x16, 0x03, 0x01, 0x00, 0x86, 0x10, 0x00}); err != nil {
+		t.Fatalf("key exchange was treated as an alert: %v", err)
+	}
+}
+
 func TestMalformedModernCertificateIsStartupError(t *testing.T) {
 	directory := t.TempDir()
 	certPath := filepath.Join(directory, "bad-cert.pem")

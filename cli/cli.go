@@ -18,8 +18,10 @@ import (
 	"path/filepath"
 	"strconv"
 	"syscall"
+	"time"
 	"wwfc/common"
 	"wwfc/internal/bootstrap"
+	"wwfc/internal/certs"
 	"wwfc/internal/dnssrv"
 	"wwfc/internal/privbind"
 	"wwfc/logging"
@@ -53,12 +55,12 @@ func runCLI(arguments []string, stdout, stderr io.Writer) error {
 		return nil
 	}
 	command := arguments[0]
-	if command != "init" && command != "run" && command != "doctor" {
+	if command != "init" && command != "run" && command != "doctor" && command != "repair-certs" {
 		if command == "help" || command == "--help" || command == "-h" {
 			printUsage(stdout)
 			return nil
 		}
-		return fmt.Errorf("unknown command %q; use init, run, or doctor", command)
+		return fmt.Errorf("unknown command %q; use init, run, doctor, or repair-certs", command)
 	}
 	defaultDirectory, err := common.DefaultDataDir()
 	if err != nil {
@@ -102,6 +104,19 @@ func runCLI(arguments []string, stdout, stderr io.Writer) error {
 		fmt.Fprintln(stdout, "Gecko codes:", common.DataPath("gecko"))
 		fmt.Fprintln(stdout, "The API secret is stored in config.xml; do not share it.")
 		fmt.Fprintln(stdout, "Set your Wii DNS to", result.Config.LANAddress)
+		return nil
+	case "repair-certs":
+		changed, err := certs.RegenerateWiiCertificate(result.Config.CertPathWii, result.Config.KeyPathWii, time.Now())
+		if err != nil {
+			return err
+		}
+		if changed {
+			fmt.Fprintln(stdout, "Replaced the Wii certificate using the existing private key.")
+			fmt.Fprintln(stdout, "Original certificate:", result.Config.CertPathWii+".before-openssl-compat")
+			fmt.Fprintln(stdout, "Restart mkwfc before retrying the console.")
+		} else {
+			fmt.Fprintln(stdout, "The Wii certificate already uses the compatible encoding; no files were changed.")
+		}
 		return nil
 	case "doctor":
 		return runDoctor(commandContext(), result, options, stdout)
@@ -212,6 +227,7 @@ func commandContext() context.Context {
 }
 
 func printUsage(writer io.Writer) {
-	fmt.Fprintln(writer, "Usage: mkwfc <init|run|doctor> [--data-dir DIR] [--lan-ip IPv4]")
+	fmt.Fprintln(writer, "Usage: mkwfc <init|run|doctor|repair-certs> [--data-dir DIR] [--lan-ip IPv4]")
 	fmt.Fprintln(writer, "Development overrides: --dns-port PORT --http-port PORT --https-port PORT")
+	fmt.Fprintln(writer, "repair-certs backs up and replaces only an incompatible Wii certificate, preserving its key.")
 }
