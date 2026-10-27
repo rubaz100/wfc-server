@@ -106,10 +106,21 @@ func privilegedBind(ctx context.Context, specs []Spec, runtimeDir string) (*Sock
 		}
 		return nil, err
 	}
-	if err := <-wait; err != nil {
+	// The helper stays alive holding the descriptors until we close the control
+	// connection (receiveSockets registered that close on the Sockets); closing
+	// the listening sockets early would drain their accept queues and break the
+	// sockets we just received. Reap the helper when the Sockets are closed, and
+	// close the Sockets if the context is cancelled.
+	sockets.addCloser(func() {
+		select {
+		case <-wait:
+		case <-time.After(5 * time.Second):
+		}
+	})
+	go func() {
+		<-ctx.Done()
 		sockets.CloseAll()
-		return nil, fmt.Errorf("privileged helper exited unsuccessfully: %w: %s", err, strings.TrimSpace(output.String()))
-	}
+	}()
 	return sockets, nil
 }
 
@@ -119,7 +130,15 @@ func receiveSockets(listener *net.UnixListener, request Request) (*Sockets, erro
 	if err != nil {
 		return nil, fmt.Errorf("accept descriptor connection: %w", err)
 	}
-	defer connection.Close()
+	// On success the control connection is kept open and handed to the Sockets
+	// (closing it tells the helper to release the descriptors); close it here
+	// only if we fail before that hand-off.
+	success := false
+	defer func() {
+		if !success {
+			_ = connection.Close()
+		}
+	}()
 	if err := connection.SetDeadline(time.Now().Add(30 * time.Second)); err != nil {
 		return nil, err
 	}
@@ -192,6 +211,12 @@ func receiveSockets(listener *net.UnixListener, request Request) (*Sockets, erro
 			return nil, err
 		}
 	}
+	// Hand the control connection to the caller via the Sockets: closing it on
+	// CloseAll signals the helper to release the listening sockets and exit.
+	// Clear the deadline so holding it open does not later time out.
+	_ = connection.SetDeadline(time.Time{})
+	sockets.addCloser(func() { _ = connection.Close() })
+	success = true
 	return sockets, nil
 }
 
@@ -270,8 +295,22 @@ func runHelper(request Request, socketPath string) error {
 	for index, file := range files {
 		binary.NativeEndian.PutUint32(rights[index*4:], uint32(file.Fd()))
 	}
-	_, _, err = unixConnection.WriteMsgUnix([]byte{byte(len(files))}, unix.UnixRights(intSlice(rights)...), nil)
-	return err
+	if _, _, err = unixConnection.WriteMsgUnix([]byte{byte(len(files))}, unix.UnixRights(intSlice(rights)...), nil); err != nil {
+		return err
+	}
+	// Keep the listening sockets open until the parent closes the control
+	// connection. On macOS/BSD, closing a listening socket drains and RSTs its
+	// accept queue, and the dup the parent received does not keep that queue
+	// alive; releasing the descriptors now would break the parent's sockets.
+	// Block (holding the descriptors via the deferred close above) until the
+	// parent drops the connection, then return so the deferred closes run.
+	_ = unixConnection.SetReadDeadline(time.Time{})
+	hold := make([]byte, 1)
+	for {
+		if _, err := unixConnection.Read(hold); err != nil {
+			return nil
+		}
+	}
 }
 
 func intSlice(data []byte) []int {

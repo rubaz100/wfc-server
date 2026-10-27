@@ -26,16 +26,21 @@ points at WiiLink24. Rebase onto upstream with `scripts/rebase-upstream.sh`.
 Pre-existing local additions (admin API, bans/motd endpoints, config-write) were already in
 the working tree when this fork branch was created and are carried along unchanged.
 
-## Known issues
+## Design notes
 
-- **Privileged-bind escalation path is broken on macOS.** `privbind.Bind` tries
-  `BindDirect` (plain `net.Listen`) first and only falls back to the osascript helper
-  (`privilegedBind`) when that fails with a permission error — i.e. `mkwfc run` *without*
-  sudo trying to bind 53/80/443. In that fallback, the helper binds the listening sockets,
-  passes them to the parent over `SCM_RIGHTS`, then closes them. On macOS/BSD, closing a
-  listening socket drains and RSTs its accept queue, and the parent's passed dup does not
-  keep that queue alive, so connections accepted afterward lose data and read EOF (verified:
-  helper holding the fds open → 0% failure; helper closing them → ~55–90%). `sudo mkwfc run`
-  uses `BindDirect` and is unaffected. Fix: keep the privileged helper alive holding the
-  descriptors for the server's lifetime, closing them only when the parent closes the control
-  socket. `TestDescriptorPassingAndHighPortDirectBind` is `t.Skip`-ped until then.
+- **The privileged-bind helper is long-lived.** `privbind.Bind` tries `BindDirect`
+  (plain `net.Listen`) first and only falls back to the osascript helper (`privilegedBind`)
+  when that fails with a permission error — i.e. `mkwfc run` *without* sudo trying to bind
+  53/80/443. The helper binds the listening sockets and passes them to the parent over
+  `SCM_RIGHTS`. On macOS/BSD, closing a listening socket drains and RSTs its accept queue,
+  and the parent's passed dup does *not* keep that queue alive — so if the helper closed its
+  descriptors right after the hand-off, the parent's sockets would stop delivering data
+  (accepted connections read EOF; measured ~55–90% failure). To avoid this, `runHelper`
+  blocks after sending the descriptors and holds them open until the parent closes the
+  control connection; the parent registers that close (and reaps the helper) on
+  `Sockets.CloseAll`, and also triggers it on context cancellation. The helper therefore
+  lives for the whole server run. `sudo mkwfc run` uses `BindDirect` and never spawns it.
+
+  Caveat: the osascript GUI-escalation path has not been exercised end-to-end with a real
+  console (it needs interactive admin authorization); the mechanism is covered by
+  `TestDescriptorPassingAndHighPortDirectBind`, which drives `runHelper` directly.

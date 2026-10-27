@@ -28,12 +28,28 @@ type boundSocket struct {
 }
 
 type Sockets struct {
-	mutex  sync.Mutex
-	byName map[string]boundSocket
-	closed bool
+	mutex   sync.Mutex
+	byName  map[string]boundSocket
+	closed  bool
+	closers []func()
 }
 
 func newSockets() *Sockets { return &Sockets{byName: map[string]boundSocket{}} }
+
+// addCloser registers a function to run on CloseAll, after the sockets
+// themselves are closed, in registration order. Used to release the privileged
+// bind helper (close its control connection, then reap it). If the sockets are
+// already closed, the closer runs immediately.
+func (s *Sockets) addCloser(closer func()) {
+	s.mutex.Lock()
+	if s.closed {
+		s.mutex.Unlock()
+		closer()
+		return
+	}
+	s.closers = append(s.closers, closer)
+	s.mutex.Unlock()
+}
 
 func (s *Sockets) add(name string, socket boundSocket) error {
 	s.mutex.Lock()
@@ -83,6 +99,8 @@ func (s *Sockets) CloseAll() {
 	s.closed = true
 	sockets := s.byName
 	s.byName = map[string]boundSocket{}
+	closers := s.closers
+	s.closers = nil
 	s.mutex.Unlock()
 	for _, socket := range sockets {
 		if socket.listener != nil {
@@ -91,6 +109,9 @@ func (s *Sockets) CloseAll() {
 		if socket.packet != nil {
 			_ = socket.packet.Close()
 		}
+	}
+	for _, closer := range closers {
+		closer()
 	}
 }
 

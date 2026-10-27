@@ -17,22 +17,6 @@ func testRequest(specs ...Spec) Request {
 }
 
 func TestDescriptorPassingAndHighPortDirectBind(t *testing.T) {
-	// KNOWN BUG (privileged-bind escalation path): runHelper closes the bound
-	// listening-socket descriptors when it finishes. On macOS/BSD, closing a
-	// listening socket drains and RSTs its accept queue, and the parent's
-	// SCM_RIGHTS-passed dup does NOT keep that queue alive — so connections
-	// accepted after the helper releases its descriptors lose data and read
-	// EOF. Verified empirically: with the helper holding the descriptors open
-	// this round is 0/20; once it closes them it fails ~55-90%.
-	//
-	// This only affects `mkwfc run` WITHOUT sudo, which escalates via osascript
-	// (privbind.Bind -> privilegedBind). `sudo mkwfc run` uses BindDirect
-	// (plain net.Listen) and is unaffected. The fix is to keep the privileged
-	// helper alive holding the descriptors for the server's lifetime, closing
-	// them only when the parent closes the control socket. Skipped until that
-	// lifecycle change lands so the suite does not carry a flaky test.
-	t.Skip("privileged-bind helper closes listening sockets too early; see comment and FORK-NOTES.md")
-
 	runtimeDir := testRuntimeDir(t)
 	if err := os.Chmod(runtimeDir, 0700); err != nil {
 		t.Fatal(err)
@@ -46,16 +30,17 @@ func TestDescriptorPassingAndHighPortDirectBind(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer listener.Close()
+	// runHelper holds the descriptors open until the control connection is
+	// closed, so do all I/O first, then CloseAll (which signals the helper) and
+	// finally wait for it to exit. Closing before using the sockets would drain
+	// their accept queues; see FORK-NOTES.md.
 	done := make(chan error, 1)
 	go func() { done <- runHelper(request, listener.Addr().String()) }()
 	sockets, err := receiveSockets(listener, request)
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer sockets.CloseAll()
-	if err := <-done; err != nil {
-		t.Fatal(err)
-	}
+	defer sockets.CloseAll() // backstop: release the helper even if an assertion fails
 	tcpListener, err := sockets.Listener("tcp-test")
 	if err != nil {
 		t.Fatal(err)
@@ -92,6 +77,11 @@ func TestDescriptorPassingAndHighPortDirectBind(t *testing.T) {
 	_ = packet.SetReadDeadline(time.Now().Add(time.Second))
 	if n, _, err := packet.ReadFrom(buffer); err != nil || n != 5 {
 		t.Fatalf("received UDP descriptor failed: %d, %v", n, err)
+	}
+	// Release the descriptors and wait for the helper to exit cleanly.
+	sockets.CloseAll()
+	if err := <-done; err != nil {
+		t.Fatal(err)
 	}
 }
 
