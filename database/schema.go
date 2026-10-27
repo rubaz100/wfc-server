@@ -1,39 +1,80 @@
 package database
 
-func (c *Connection) UpdateTables() {
-	_, _ = c.pool.Exec(c.ctx, `
+import (
+	"database/sql"
+	"embed"
+	"fmt"
+	"sort"
+	"strings"
+)
 
-	ALTER TABLE ONLY public.users
-		ADD IF NOT EXISTS last_ip_address character varying DEFAULT ''::character varying,
-		ADD IF NOT EXISTS last_ingamesn character varying DEFAULT ''::character varying,
-		ADD IF NOT EXISTS has_ban boolean DEFAULT false,
-		ADD IF NOT EXISTS ban_issued timestamp without time zone,
-		ADD IF NOT EXISTS ban_expires timestamp without time zone,
-		ADD IF NOT EXISTS ban_reason character varying,
-		ADD IF NOT EXISTS ban_reason_hidden character varying,
-		ADD IF NOT EXISTS ban_moderator character varying,
-		ADD IF NOT EXISTS ban_tos boolean,
-		ADD IF NOT EXISTS open_host boolean DEFAULT false,
-		ADD IF NOT EXISTS allow_default_keys boolean DEFAULT false;
-	`)
+//go:embed migrations/*.sql
+var migrationsFS embed.FS
 
-	_, _ = c.pool.Exec(c.ctx, `
+// migrate applies every embedded migration file that has not yet been recorded
+// in schema_migrations, in filename order. Each file is identified by the
+// numeric prefix of its name (e.g. 0001_init.sql -> "0001").
+func (c *Connection) migrate() error {
+	_, err := c.pool.Exec(c.ctx, `CREATE TABLE IF NOT EXISTS schema_migrations (
+		version TEXT PRIMARY KEY,
+		applied_at DATETIME DEFAULT CURRENT_TIMESTAMP
+	)`)
+	if err != nil {
+		return fmt.Errorf("create schema_migrations: %w", err)
+	}
 
-	DO $$ 
-	BEGIN
-    	IF (SELECT data_type FROM information_schema.columns WHERE table_name='users' AND column_name='ng_device_id') != 'ARRAY' THEN
-        	ALTER TABLE public.users
-            	ALTER COLUMN ng_device_id TYPE bigint[] using array[ng_device_id];
-    	END IF;
-	END $$;
+	entries, err := migrationsFS.ReadDir("migrations")
+	if err != nil {
+		return err
+	}
 
-	`)
+	names := make([]string, 0, len(entries))
+	for _, e := range entries {
+		if !e.IsDir() && strings.HasSuffix(e.Name(), ".sql") {
+			names = append(names, e.Name())
+		}
+	}
+	sort.Strings(names)
 
-	_, _ = c.pool.Exec(c.ctx, `
+	for _, name := range names {
+		version := strings.SplitN(name, "_", 2)[0]
 
-	ALTER TABLE ONLY public.mario_kart_wii_sake
-        ADD IF NOT EXISTS id serial PRIMARY KEY,
-		ADD IF NOT EXISTS upload_time timestamp without time zone;
-	
-	`)
+		var exists bool
+		if err := c.pool.QueryRow(c.ctx, `SELECT EXISTS(SELECT 1 FROM schema_migrations WHERE version = $1)`, version).Scan(&exists); err != nil {
+			return err
+		}
+		if exists {
+			continue
+		}
+
+		body, err := migrationsFS.ReadFile("migrations/" + name)
+		if err != nil {
+			return err
+		}
+
+		if _, err := c.pool.Exec(c.ctx, string(body)); err != nil {
+			return fmt.Errorf("apply migration %s: %w", name, err)
+		}
+		if _, err := c.pool.Exec(c.ctx, `INSERT INTO schema_migrations (version) VALUES ($1)`, version); err != nil {
+			return err
+		}
+	}
+
+	return nil
 }
+
+// MigrationVersion returns the highest applied migration version, or "" if none
+// have been applied.
+func (c *Connection) MigrationVersion() (string, error) {
+	var v sql.NullString
+	err := c.pool.QueryRow(c.ctx, `SELECT MAX(version) FROM schema_migrations`).Scan(&v)
+	if err != nil {
+		return "", err
+	}
+	return v.String, nil
+}
+
+// UpdateTables previously applied idempotent Postgres ALTERs at startup. The
+// SQLite schema is now fully defined by the embedded migrations, so this is a
+// no-op kept for call-site compatibility.
+func (c *Connection) UpdateTables() {}

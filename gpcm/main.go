@@ -4,6 +4,7 @@ import (
 	"encoding/gob"
 	"os"
 	"strings"
+	"sync/atomic"
 	"wwfc/common"
 	"wwfc/database"
 	"wwfc/logging"
@@ -64,7 +65,7 @@ var (
 	sessionsByConnIndex = map[uint64]*GameSpySession{}
 	mutex               = deadlock.Mutex{}
 
-	allowDefaultDolphinKeys bool
+	allowDefaultDolphinKeys atomic.Bool
 )
 
 func StartServer(reload bool) {
@@ -77,7 +78,7 @@ func StartServer(reload bool) {
 	db = database.Start(config)
 	db.UpdateTables()
 
-	allowDefaultDolphinKeys = config.AllowDefaultDolphinKeys
+	allowDefaultDolphinKeys.Store(config.AllowDefaultDolphinKeys)
 
 	if reload {
 		err := loadState()

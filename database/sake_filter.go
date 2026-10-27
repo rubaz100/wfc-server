@@ -5,17 +5,14 @@ import (
 	"strconv"
 	"strings"
 	"wwfc/filter"
-
-	"github.com/jackc/pgconn"
 )
 
 type expression struct {
 	ast   *filter.TreeNode
 	query string
-	conn  *pgconn.PgConn
 }
 
-func createSqlFilter(conn *pgconn.PgConn, basenode *filter.TreeNode) (value string, err error) {
+func createSqlFilter(basenode *filter.TreeNode) (value string, err error) {
 	defer func() {
 		if str := recover(); str != nil {
 			value = ""
@@ -23,7 +20,7 @@ func createSqlFilter(conn *pgconn.PgConn, basenode *filter.TreeNode) (value stri
 		}
 	}()
 
-	e := &expression{basenode, "", conn}
+	e := &expression{basenode, ""}
 	e.filterAppendRoot(basenode)
 	return "(" + e.query + ")", nil
 }
@@ -109,7 +106,7 @@ func (e *expression) filterAppendNode(node *filter.TreeNode) {
 		}
 		panic("unexpected grouping type '" + v.GroupType + "': " + node.String())
 	case *filter.TextToken:
-		e.query += "(" + e.filterPushArg(v.Text) + ")::varchar"
+		e.query += "CAST(" + e.filterPushArg(v.Text) + " AS TEXT)"
 
 	default:
 		panic("unexpected value: " + node.String())
@@ -159,11 +156,11 @@ func (e *expression) filterAppendMathOperator(operator string, args []*filter.Tr
 	if cnt != 2 {
 		panic("operator requires exactly 2 arguments")
 	}
-	e.query += "( ("
+	e.query += "( CAST(("
 	e.filterAppendNode(args[0])
-	e.query += ")::bigint " + operator + " ("
+	e.query += ") AS INTEGER) " + operator + " CAST(("
 	e.filterAppendNode(args[1])
-	e.query += ")::bigint )"
+	e.query += ") AS INTEGER) )"
 }
 
 func (e *expression) filterAppendFuncSubstring(token *filter.FuncToken) {
@@ -171,13 +168,13 @@ func (e *expression) filterAppendFuncSubstring(token *filter.FuncToken) {
 		panic("substring requires exactly 3 arguments")
 	}
 
-	e.query += "SUBSTRING( "
+	e.query += "substr( "
 	e.filterAppendRoot(token.Arguments[0])
-	e.query += ", ("
+	e.query += ", CAST(("
 	e.filterAppendRoot(token.Arguments[1])
-	e.query += ")::bigint, ("
+	e.query += ") AS INTEGER), CAST(("
 	e.filterAppendRoot(token.Arguments[2])
-	e.query += ")::bigint )"
+	e.query += ") AS INTEGER) )"
 }
 
 // Get a value from the record
@@ -203,14 +200,6 @@ func (e *expression) filterAppendQueryValue(token *filter.IdentityToken) {
 }
 
 func (e *expression) filterPushArg(arg string) string {
-	// This is scary!!!
-	if e.conn == nil {
-		return `'` + strings.ReplaceAll(arg, "'", "''") + `'`
-	}
-
-	str, err := e.conn.EscapeString(arg)
-	if err != nil {
-		panic(err)
-	}
-	return `'` + str + `'`
+	// Escape by doubling single quotes (standard SQL string-literal escaping).
+	return `'` + strings.ReplaceAll(arg, "'", "''") + `'`
 }

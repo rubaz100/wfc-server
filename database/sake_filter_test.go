@@ -15,7 +15,7 @@ func testGenerateFilter(t *testing.T, expression string) {
 
 	fmt.Printf("tree: %s\n", tree.String())
 
-	query, err := createSqlFilter(nil, tree)
+	query, err := createSqlFilter(tree)
 	if err != nil {
 		t.Error(err)
 		return

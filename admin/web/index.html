@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+	<meta charset="UTF-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1.0">
+	<title>mkwfc Host Manager</title>
+	<link rel="stylesheet" href="style.css">
+	<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'><text y='14' font-size='14'>🏁</text></svg>">
+</head>
+<body>
+	<!-- Secret gate -->
+	<div id="gate" class="gate hidden">
+		<form class="gate-card" id="gate-form">
+			<div class="gate-logo">🏁</div>
+			<h1>mkwfc Host Manager</h1>
+			<p>Enter the API secret to manage the server. It's the <code>apiSecret</code> value from <code>config.xml</code>.</p>
+			<input type="password" id="gate-secret" placeholder="API secret" autocomplete="current-password">
+			<label class="gate-remember"><input type="checkbox" id="gate-remember" checked> Remember on this device</label>
+			<button type="submit" class="btn btn-primary">Unlock</button>
+			<div class="gate-error" id="gate-error"></div>
+		</form>
+	</div>
+
+	<!-- App -->
+	<div id="app" class="app hidden">
+		<div class="appbar">
+		<header class="topbar">
+			<div class="brand">
+				<span class="brand-logo">🏁</span>
+				<div class="brand-text">
+					<strong id="server-name">mkwfc</strong>
+					<span class="brand-sub">Host Manager</span>
+				</div>
+			</div>
+			<div class="top-stats" id="top-stats">
+				<div class="pill"><span class="pill-dot" id="conn-dot"></span><span id="conn-text">connecting…</span></div>
+				<div class="pill"><b id="stat-online">0</b> online</div>
+				<div class="pill"><b id="stat-rooms">0</b> rooms</div>
+			</div>
+			<button class="btn btn-ghost" id="btn-logout" title="Forget secret / lock">🔒</button>
+		</header>
+
+		<nav class="tabs" id="tabs">
+			<button class="tab active" data-view="dashboard">Dashboard</button>
+			<button class="tab" data-view="rooms">Rooms</button>
+			<button class="tab" data-view="players">Players</button>
+			<button class="tab" data-view="bans">Bans</button>
+			<button class="tab" data-view="settings">Settings</button>
+		</nav>
+		</div>
+
+		<main id="content" class="content"></main>
+	</div>
+
+	<div id="modal-root"></div>
+	<div id="toast-root" class="toast-root"></div>
+
+	<script src="app.js"></script>
+</body>
+</html>

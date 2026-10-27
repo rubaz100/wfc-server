@@ -3,12 +3,10 @@ package database
 import (
 	"encoding/json"
 	"errors"
+	"math/rand"
+	"strings"
 	"wwfc/common"
 	"wwfc/filter"
-
-	"github.com/jackc/pgconn"
-	"github.com/jackc/pgerrcode"
-	"github.com/jackc/pgx/v4/pgxpool"
 )
 
 const (
@@ -23,6 +21,10 @@ const (
 	SakeFieldTypeBinaryData    = 8
 	SakeFieldTypeInt64         = 9
 )
+
+// sakeMaxFields mirrors the upstream Postgres CHECK that limited a record to 64
+// fields. SQLite has no equivalent jsonb path check, so it is enforced in Go.
+const sakeMaxFields = 64
 
 type SakeFieldType int
 
@@ -40,39 +42,40 @@ type SakeRecord struct {
 }
 
 const (
+	// $3 and $4 are JSON arrays of owner IDs / record IDs (empty array = no filter).
 	getSakeRecordsQuery = `
-		SELECT owner_id, record_id, fields 
-		FROM sake_records 
-		WHERE game_id = $1 
-		  AND table_id = $2 
-		  AND (cardinality($4::integer[]) = 0 OR record_id = ANY($4::integer[])) 
-		  AND (cardinality($3::integer[]) = 0 OR owner_id = ANY($3::integer[]))`
+		SELECT owner_id, record_id, fields
+		FROM sake_records
+		WHERE game_id = $1
+		  AND table_id = $2
+		  AND (json_array_length($4) = 0 OR record_id IN (SELECT value FROM json_each($4)))
+		  AND (json_array_length($3) = 0 OR owner_id IN (SELECT value FROM json_each($3)))`
 
 	updateSakeRecordQuery = `
-        UPDATE sake_records 
-        SET 
-            fields = CASE WHEN owner_id = $4 THEN fields || $5 ELSE fields END, 
-            update_time = CASE WHEN owner_id = $4 THEN CURRENT_TIMESTAMP ELSE update_time END 
-        WHERE game_id = $1 
-          AND table_id = $2 
-          AND record_id = $3 
+        UPDATE sake_records
+        SET
+            fields = CASE WHEN owner_id = $4 THEN json_patch(fields, $5) ELSE fields END,
+            update_time = CASE WHEN owner_id = $4 THEN CURRENT_TIMESTAMP ELSE update_time END
+        WHERE game_id = $1
+          AND table_id = $2
+          AND record_id = $3
         RETURNING owner_id`
 
 	insertSakeRecordQuery = `
-		INSERT INTO sake_records (game_id, table_id, owner_id, fields) 
-		VALUES ($1, $2, $3, $4)
+		INSERT INTO sake_records (game_id, table_id, record_id, owner_id, fields)
+		VALUES ($1, $2, $3, $4, $5)
 		RETURNING record_id`
 
 	deleteSakeRecordQuery = `
-		DELETE FROM sake_records 
-		WHERE game_id = $1 
-		  AND table_id = $2 
-		  AND record_id = $3 
+		DELETE FROM sake_records
+		WHERE game_id = $1
+		  AND table_id = $2
+		  AND record_id = $3
 		  AND owner_id = $4`
 
 	checkMaxSakeRecordsQuery = `
-		SELECT COUNT(*) 
-		FROM sake_records 
+		SELECT COUNT(*)
+		FROM sake_records
 		WHERE owner_id = $1`
 )
 
@@ -91,6 +94,19 @@ func parseSakeFieldsFromJson(fieldsJson []byte) (map[string]SakeField, error) {
 	}
 
 	return fields, nil
+}
+
+// isUniqueViolation reports whether err is a SQLite UNIQUE constraint failure.
+func isUniqueViolation(err error) bool {
+	return err != nil && strings.Contains(err.Error(), "UNIQUE constraint failed")
+}
+
+func int32SliceToJSON(v []int32) string {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return "[]"
+	}
+	return string(b)
 }
 
 func (c *Connection) GetSakeRecords(gameId int, ownerIds []int32, tableId string, recordIds []int32, fields []string, filterExpr string) ([]SakeRecord, error) {
@@ -112,11 +128,7 @@ func (c *Connection) GetSakeRecords(gameId int, ownerIds []int32, tableId string
 			return nil, err
 		}
 
-		var filterQuery string
-		err = c.pool.AcquireFunc(c.ctx, func(conn *pgxpool.Conn) error {
-			filterQuery, err = createSqlFilter(conn.Conn().PgConn(), tree)
-			return err
-		})
+		filterQuery, err := createSqlFilter(tree)
 		if err != nil {
 			return nil, err
 		}
@@ -126,7 +138,7 @@ func (c *Connection) GetSakeRecords(gameId int, ownerIds []int32, tableId string
 		query += " AND (" + filterQuery + ")"
 	}
 
-	rows, err := c.pool.Query(c.ctx, query, gameId, tableId, ownerIds, recordIds)
+	rows, err := c.pool.Query(c.ctx, query, gameId, tableId, int32SliceToJSON(ownerIds), int32SliceToJSON(recordIds))
 	if err != nil {
 		return nil, err
 	}
@@ -151,10 +163,14 @@ func (c *Connection) GetSakeRecords(gameId int, ownerIds []int32, tableId string
 		records = append(records, record)
 	}
 
-	return records, nil
+	return records, rows.Err()
 }
 
 func (c *Connection) UpdateSakeRecord(record SakeRecord, ownerId int32) error {
+	if len(record.Fields) > sakeMaxFields {
+		return ErrSakeFieldLimitExceeded
+	}
+
 	fieldsJson, err := json.Marshal(record.Fields)
 	if err != nil {
 		return err
@@ -162,10 +178,6 @@ func (c *Connection) UpdateSakeRecord(record SakeRecord, ownerId int32) error {
 	var existingOwnerId int32
 	err = c.pool.QueryRow(c.ctx, updateSakeRecordQuery, record.GameId, record.TableId, record.RecordId, ownerId, fieldsJson).Scan(&existingOwnerId)
 	if err != nil {
-		var pgErr *pgconn.PgError
-		if errors.As(err, &pgErr) && pgErr.Code == pgerrcode.CheckViolation {
-			return ErrSakeFieldLimitExceeded
-		}
 		return err
 	}
 	if ownerId != 0 && existingOwnerId != ownerId {
@@ -176,24 +188,27 @@ func (c *Connection) UpdateSakeRecord(record SakeRecord, ownerId int32) error {
 }
 
 func (c *Connection) InsertSakeRecord(record SakeRecord) (recordId int32, err error) {
+	if len(record.Fields) > sakeMaxFields {
+		return 0, ErrSakeFieldLimitExceeded
+	}
+
 	fieldsJson, err := json.Marshal(record.Fields)
 	if err != nil {
 		return 0, err
 	}
 
 	for i := 0; i < 10; i++ {
-		err = c.pool.QueryRow(c.ctx, insertSakeRecordQuery, record.GameId, record.TableId, record.OwnerId, fieldsJson).Scan(&recordId)
+		// record_id was a random DEFAULT in Postgres; generate it here so the
+		// INSERT is portable. Positive int32 to satisfy the column's domain.
+		candidate := rand.Int31n(2147483647) + 1
+		err = c.pool.QueryRow(c.ctx, insertSakeRecordQuery, record.GameId, record.TableId, candidate, record.OwnerId, fieldsJson).Scan(&recordId)
 		if err == nil {
 			break
 		}
-		var pgErr *pgconn.PgError
-		if !errors.As(err, &pgErr) {
+		// Retry if the random record ID collided with an existing one.
+		if !isUniqueViolation(err) {
 			break
 		}
-		if pgErr.Code != pgerrcode.UniqueViolation {
-			break
-		}
-		// Retry if unique violation occurred, as the record ID is generated randomly
 	}
 	return recordId, err
 }

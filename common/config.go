@@ -9,6 +9,11 @@ import (
 )
 
 type Config struct {
+	// DatabasePath is the SQLite database file. The server is single-binary and
+	// embeds SQLite, so the Postgres fields below are retained only for backward
+	// compatibility with older config files and are no longer used.
+	DatabasePath string `xml:"databasePath"`
+
 	Username        string `xml:"username"`
 	Password        string `xml:"password"`
 	DatabaseAddress string `xml:"databaseAddress"`
@@ -43,6 +48,9 @@ type Config struct {
 	KeyPathDS     string `xml:"keyPathDS"`
 
 	APISecret string `xml:"apiSecret"`
+
+	// AdminAddress is where the Host Manager web panel + API listen.
+	AdminAddress string `xml:"adminAddress"`
 
 	AllowDefaultDolphinKeys     bool   `xml:"allowDefaultDolphinKeys"`
 	AllowMultipleDeviceIDs      string `xml:"allowMultipleDeviceIDs"`
@@ -138,15 +146,30 @@ func GetConfig() Config {
 		config.BackendFrontendAddress = config.FrontendAddress
 	}
 
-	if config.AllowMultipleDeviceIDs == "true" || config.AllowMultipleDeviceIDs == "yes" {
-		config.AllowMultipleDeviceIDs = "always"
-	} else if config.AllowMultipleDeviceIDs != "SameIPAddress" {
-		config.AllowMultipleDeviceIDs = "never"
+	if config.AdminAddress == "" {
+		config.AdminAddress = "127.0.0.1:29990"
 	}
+
+	if config.DatabasePath == "" {
+		config.DatabasePath = "mkwfc.db"
+	}
+
+	config.AllowMultipleDeviceIDs = normalizeMultipleDeviceIDs(config.AllowMultipleDeviceIDs)
 
 	configLoaded = true
 
 	return config
+}
+
+func normalizeMultipleDeviceIDs(value string) string {
+	switch value {
+	case "true", "yes", "always":
+		return "always"
+	case "SameIPAddress":
+		return value
+	default:
+		return "never"
+	}
 }
 
 func (c Config) RegisterWebhooks() {

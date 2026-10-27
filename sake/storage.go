@@ -1,6 +1,7 @@
 package sake
 
 import (
+	"database/sql"
 	"encoding/xml"
 	"io"
 	"net/http"
@@ -10,7 +11,6 @@ import (
 	"wwfc/database"
 	"wwfc/logging"
 
-	"github.com/jackc/pgx/v4"
 	"github.com/logrusorgru/aurora/v3"
 )
 
@@ -351,7 +351,7 @@ func getMyRecords(moduleName string, profileId uint32, gameInfo common.GameInfo,
 	records, err := db.GetSakeRecords(gameInfo.GameID, []int32{int32(profileId)}, request.TableID, nil, request.Fields.String, request.Filter)
 	if err != nil {
 		logging.Error(moduleName, "Failed to get sake records from the database:", err)
-		if err == pgx.ErrNoRows {
+		if err == sql.ErrNoRows {
 			return StorageResponseBody{GetMyRecordsResponse: &GetMyRecordsResponse{
 				GetMyRecordsResult: ResultRecordNotFound,
 			}}
@@ -417,7 +417,7 @@ func updateRecord(moduleName string, profileId uint32, gameInfo common.GameInfo,
 				UpdateRecordResult: ResultNotOwned,
 			}}
 		}
-		if err == pgx.ErrNoRows {
+		if err == sql.ErrNoRows {
 			return StorageResponseBody{UpdateRecordResponse: &UpdateRecordResponse{
 				UpdateRecordResult: ResultRecordNotFound,
 			}}

@@ -40,3 +40,15 @@ func RegisterHandlers(mux *http.ServeMux) {
 	mux.HandleFunc("/api/kick", HandleKick)
 	mux.HandleFunc("/api/baninfo", HandleBanInfo)
 }
+
+// RegisterExtendedHandlers registers the base API plus the Host Manager
+// endpoints used by the admin web panel. These expose player IPs, ban lists,
+// MOTD and config, so they are intended for the localhost/LAN admin server
+// rather than the public console-facing NAS server.
+func RegisterExtendedHandlers(mux *http.ServeMux) {
+	RegisterHandlers(mux)
+	mux.HandleFunc("/api/players", HandlePlayers)
+	mux.HandleFunc("/api/bans", HandleBans)
+	mux.HandleFunc("/api/motd", HandleMOTD)
+	mux.HandleFunc("/api/config", HandleConfig)
+}

@@ -1,26 +1,30 @@
 package database
 
 import (
+	"encoding/json"
 	"errors"
 	"math/rand"
 	"time"
 )
 
 const (
-	InsertUser              = `INSERT INTO users (user_id, gsbrcd, password, ng_device_id, email, unique_nick) VALUES ($1, $2, $3, $4, $5, $6) RETURNING profile_id`
-	InsertUserWithProfileID = `INSERT INTO users (profile_id, user_id, gsbrcd, password, ng_device_id, email, unique_nick) VALUES ($1, $2, $3, $4, $5, $6, $7)`
+	InsertUser              = `INSERT INTO users (user_id, gsbrcd, password, email, unique_nick) VALUES ($1, $2, $3, $4, $5)`
+	InsertUserWithProfileID = `INSERT INTO users (profile_id, user_id, gsbrcd, password, email, unique_nick) VALUES ($1, $2, $3, $4, $5, $6)`
 	UpdateUserTable         = `UPDATE users SET firstname = CASE WHEN $3 THEN $2 ELSE firstname END, lastname = CASE WHEN $5 THEN $4 ELSE lastname END, open_host = CASE WHEN $7 THEN $6 ELSE open_host END WHERE profile_id = $1`
 	UpdateUserProfileID     = `UPDATE users SET profile_id = $3 WHERE user_id = $1 AND gsbrcd = $2`
-	UpdateUserNGDeviceID    = `UPDATE users SET ng_device_id = $2 WHERE profile_id = $1`
 	GetUser                 = `SELECT user_id, gsbrcd, email, unique_nick, firstname, lastname, open_host, last_ip_address, last_ingamesn FROM users WHERE profile_id = $1`
 	ClearProfileQuery       = `DELETE FROM users WHERE profile_id = $1 RETURNING user_id, gsbrcd, email, unique_nick, firstname, lastname, open_host, last_ip_address, last_ingamesn`
 	DoesUserExist           = `SELECT EXISTS(SELECT 1 FROM users WHERE user_id = $1 AND gsbrcd = $2)`
 	IsProfileIDInUse        = `SELECT EXISTS(SELECT 1 FROM users WHERE profile_id = $1)`
 	DeleteUserSession       = `DELETE FROM sessions WHERE profile_id = $1`
-	GetUserProfileID        = `SELECT profile_id, ng_device_id, email, unique_nick, firstname, lastname, open_host, last_ip_address, allow_default_keys FROM users WHERE user_id = $1 AND gsbrcd = $2`
+	GetUserProfileID        = `SELECT profile_id, email, unique_nick, firstname, lastname, open_host, last_ip_address, allow_default_keys FROM users WHERE user_id = $1 AND gsbrcd = $2`
 	UpdateUserLastIPAddress = `UPDATE users SET last_ip_address = $2, last_ingamesn = $3 WHERE profile_id = $1`
-	UpdateUserBan           = `UPDATE users SET has_ban = true, ban_issued = $2, ban_expires = $3, ban_reason = $4, ban_reason_hidden = $5, ban_moderator = $6, ban_tos = $7 WHERE profile_id = $1`
-	DisableUserBan          = `UPDATE users SET has_ban = false WHERE profile_id = $1`
+	UpdateUserBan           = `UPDATE users SET has_ban = 1, ban_issued = $2, ban_expires = $3, ban_reason = $4, ban_reason_hidden = $5, ban_moderator = $6, ban_tos = $7 WHERE profile_id = $1`
+	DisableUserBan          = `UPDATE users SET has_ban = 0 WHERE profile_id = $1`
+
+	selectNgDeviceIds = `SELECT device_id FROM user_ng_device_ids WHERE profile_id = $1 ORDER BY device_id`
+	insertNgDeviceId  = `INSERT OR IGNORE INTO user_ng_device_ids (profile_id, device_id) VALUES ($1, $2)`
+	deleteNgDeviceIds = `DELETE FROM user_ng_device_ids WHERE profile_id = $1`
 )
 
 type User struct {
@@ -46,9 +50,54 @@ var (
 	ErrReservedProfileIDRange = errors.New("profile ID is in reserved range")
 )
 
+// getNgDeviceIds returns the NG device IDs associated with a profile.
+func (c *Connection) getNgDeviceIds(profileId uint32) []uint32 {
+	rows, err := c.pool.Query(c.ctx, selectNgDeviceIds, profileId)
+	if err != nil {
+		return []uint32{}
+	}
+	defer rows.Close()
+
+	ids := []uint32{}
+	for rows.Next() {
+		var id int64
+		if err := rows.Scan(&id); err != nil {
+			return ids
+		}
+		ids = append(ids, uint32(id))
+	}
+	return ids
+}
+
+// setNgDeviceIds replaces the full set of NG device IDs for a profile. A device
+// ID of 0 is a placeholder and is not persisted.
+func (c *Connection) setNgDeviceIds(profileId uint32, ids []uint32) error {
+	if _, err := c.pool.Exec(c.ctx, deleteNgDeviceIds, profileId); err != nil {
+		return err
+	}
+	for _, id := range ids {
+		if id == 0 {
+			continue
+		}
+		if _, err := c.pool.Exec(c.ctx, insertNgDeviceId, profileId, id); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 func (c *Connection) CreateUser(user *User) error {
 	if user.ProfileId == 0 {
-		return c.pool.QueryRow(c.ctx, InsertUser, user.UserId, user.GsbrCode, "", user.NgDeviceId, user.Email, user.UniqueNick).Scan(&user.ProfileId)
+		res, err := c.pool.Exec(c.ctx, InsertUser, user.UserId, user.GsbrCode, "", user.Email, user.UniqueNick)
+		if err != nil {
+			return err
+		}
+		id, err := res.LastInsertId()
+		if err != nil {
+			return err
+		}
+		user.ProfileId = uint32(id)
+		return c.setNgDeviceIds(user.ProfileId, user.NgDeviceId)
 	}
 
 	if user.ProfileId >= 1000000000 {
@@ -65,8 +114,11 @@ func (c *Connection) CreateUser(user *User) error {
 		return ErrProfileIDInUse
 	}
 
-	_, err = c.pool.Exec(c.ctx, InsertUserWithProfileID, user.ProfileId, user.UserId, user.GsbrCode, "", user.NgDeviceId, user.Email, user.UniqueNick)
-	return err
+	_, err = c.pool.Exec(c.ctx, InsertUserWithProfileID, user.ProfileId, user.UserId, user.GsbrCode, "", user.Email, user.UniqueNick)
+	if err != nil {
+		return err
+	}
+	return c.setNgDeviceIds(user.ProfileId, user.NgDeviceId)
 }
 
 func (c *Connection) UpdateProfileID(user *User, newProfileId uint32) error {
@@ -158,10 +210,10 @@ func (c *Connection) UnbanUser(profileId uint32) bool {
 
 func (c *Connection) SearchUserBan(profileId uint32, ngDeviceId uint32, ipAddress string, lastIpAddress string) (
 	tos bool, issued time.Time, expires time.Time, reason string, bannedProfileId uint32, gsbrCode string, inGameName string, err error) {
-	row := c.pool.QueryRow(c.ctx, SearchUserBanInfo, ngDeviceId, profileId, ipAddress, lastIpAddress)
+	row := c.pool.QueryRow(c.ctx, SearchUserBanInfo, deviceIdsToJSON([]uint32{ngDeviceId}), profileId, ipAddress, lastIpAddress)
 	var hasBan bool
-	var bannedNgDeviceId []uint32
-	err = row.Scan(&hasBan, &tos, &issued, &expires, &reason, &bannedNgDeviceId, &bannedProfileId, &gsbrCode, &inGameName)
+	var bannedNgDeviceIdJSON []byte
+	err = row.Scan(&hasBan, &tos, &issued, &expires, &reason, &bannedNgDeviceIdJSON, &bannedProfileId, &gsbrCode, &inGameName)
 	if err == nil && !hasBan {
 		err = errors.New("no ban found")
 	}
@@ -169,4 +221,34 @@ func (c *Connection) SearchUserBan(profileId uint32, ngDeviceId uint32, ipAddres
 		gsbrCode = gsbrCode[:4]
 	}
 	return tos, issued, expires, reason, bannedProfileId, gsbrCode, inGameName, err
+}
+
+// deviceIdsToJSON renders NG device IDs as a JSON array for use with SQLite's
+// json_each(). Zero placeholders are dropped. The result is always a valid JSON
+// array (at minimum "[]").
+func deviceIdsToJSON(ids []uint32) string {
+	out := make([]uint32, 0, len(ids))
+	for _, id := range ids {
+		if id != 0 {
+			out = append(out, id)
+		}
+	}
+	b, err := json.Marshal(out)
+	if err != nil {
+		return "[]"
+	}
+	return string(b)
+}
+
+// parseDeviceIdsJSON parses a JSON array of device IDs (as produced by SQLite's
+// json_group_array) back into a slice.
+func parseDeviceIdsJSON(data []byte) []uint32 {
+	if len(data) == 0 {
+		return nil
+	}
+	var ids []uint32
+	if err := json.Unmarshal(data, &ids); err != nil {
+		return nil
+	}
+	return ids
 }

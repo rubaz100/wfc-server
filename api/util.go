@@ -21,6 +21,7 @@ const (
 	APIErrorBanFailed            APIErrorString = "ban_failed"
 	APIErrorUnbanFailed          APIErrorString = "unban_failed"
 	APIErrorBanNotFound          APIErrorString = "ban_not_found"
+	APIErrorInternal             APIErrorString = "internal_error"
 )
 
 type APIError struct {

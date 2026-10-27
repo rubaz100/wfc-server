@@ -6,6 +6,7 @@ profanity.txt
 
 # Local scripts
 *.sh
+!scripts/rebase-upstream.sh
 *.bat
 
 # Logs
@@ -21,5 +22,14 @@ state
 *.exe
 *.exe~
 
+# mkwfc fork: build output and runtime SQLite database
+/wwfc
+mkwfc.db
+mkwfc.db-shm
+mkwfc.db-wal
+
 # Editor files
 .vscode
+
+# macOS
+.DS_Store

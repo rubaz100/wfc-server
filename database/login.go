@@ -1,59 +1,59 @@
 package database
 
 import (
+	"database/sql"
 	"errors"
 	"fmt"
 	"time"
 	"wwfc/common"
 	"wwfc/logging"
 
-	"github.com/jackc/pgx/v4"
 	"github.com/logrusorgru/aurora/v3"
 )
 
+// $1 is a JSON array of the requesting client's NG device IDs. The recursive
+// CTE expands it into the full set of device IDs transitively linked through
+// shared accounts (device-ID ban evasion detection), mirroring the original
+// Postgres array-overlap (`&&` / unnest) query against the user_ng_device_ids
+// junction table. ng_device_id is reconstructed per row via json_group_array.
 const (
-	SearchUserBan = `
-	WITH known_ng_device_ids AS (
-		WITH RECURSIVE device_tree AS (
-			SELECT unnest(ng_device_id) AS device_id
-			FROM users
-			WHERE allow_default_keys = FALSE AND ng_device_id && $1
-			UNION
-			SELECT unnest(ng_device_id)
-			FROM users
-			JOIN device_tree dt
-			ON allow_default_keys = FALSE AND ng_device_id && array[dt.device_id]
-		) SELECT array_agg(DISTINCT device_id) FROM device_tree
-	) SELECT has_ban, ban_tos, ng_device_id, ban_reason
-	FROM users
-	WHERE has_ban = true
-	  AND (profile_id = $2
-	  	OR (allow_default_keys = FALSE AND ng_device_id && (SELECT * FROM known_ng_device_ids))
-	  	OR ($3 != '' AND last_ip_address = $3)
-		OR ($4 != '' AND last_ip_address = $4))
-	  AND (ban_expires IS NULL OR ban_expires > $5)
-	ORDER BY ban_tos DESC LIMIT 1`
+	knownNgDeviceIdsCTE = `
+	WITH RECURSIVE known AS (
+		SELECT CAST(value AS INTEGER) AS device_id FROM json_each($1)
+		UNION
+		SELECT d2.device_id
+		FROM known k
+		JOIN user_ng_device_ids d1 ON d1.device_id = k.device_id
+		JOIN users u ON u.profile_id = d1.profile_id AND u.allow_default_keys = 0
+		JOIN user_ng_device_ids d2 ON d2.profile_id = u.profile_id
+	)`
 
-	SearchUserBanInfo = `
-	WITH known_ng_device_ids AS (
-		WITH RECURSIVE device_tree AS (
-			SELECT unnest(ng_device_id) AS device_id
-			FROM users
-			WHERE allow_default_keys = FALSE AND $1 != 0 AND ng_device_id && array[$1]::bigint[]
-			UNION
-			SELECT unnest(ng_device_id)
-			FROM users
-			JOIN device_tree dt
-			ON allow_default_keys = FALSE AND ng_device_id && array[dt.device_id]
-		) SELECT array_agg(DISTINCT device_id) FROM device_tree
-	) SELECT has_ban, ban_tos, ban_issued, ban_expires, ban_reason, ng_device_id, profile_id, gsbrcd, last_ingamesn
-	FROM users
-	WHERE has_ban = true
-	  AND (profile_id = $2
-	  	OR (allow_default_keys = FALSE AND ng_device_id && (SELECT * FROM known_ng_device_ids))
-	  	OR ($3 != '' AND last_ip_address = $3)
-		OR ($4 != '' AND last_ip_address = $4))
-	ORDER BY ban_expires DESC LIMIT 1`
+	SearchUserBan = knownNgDeviceIdsCTE + `
+	SELECT u.has_ban, u.ban_tos,
+	       (SELECT json_group_array(device_id) FROM user_ng_device_ids d WHERE d.profile_id = u.profile_id),
+	       COALESCE(u.ban_reason, '')
+	FROM users u
+	WHERE u.has_ban = 1
+	  AND (u.profile_id = $2
+		OR (u.allow_default_keys = 0 AND EXISTS (
+			SELECT 1 FROM user_ng_device_ids d JOIN known k ON k.device_id = d.device_id WHERE d.profile_id = u.profile_id))
+		OR ($3 != '' AND u.last_ip_address = $3)
+		OR ($4 != '' AND u.last_ip_address = $4))
+	  AND (u.ban_expires IS NULL OR u.ban_expires > $5)
+	ORDER BY u.ban_tos DESC LIMIT 1`
+
+	SearchUserBanInfo = knownNgDeviceIdsCTE + `
+	SELECT u.has_ban, u.ban_tos, u.ban_issued, u.ban_expires, COALESCE(u.ban_reason, ''),
+	       (SELECT json_group_array(device_id) FROM user_ng_device_ids d WHERE d.profile_id = u.profile_id),
+	       u.profile_id, u.gsbrcd, u.last_ingamesn
+	FROM users u
+	WHERE u.has_ban = 1
+	  AND (u.profile_id = $2
+		OR (u.allow_default_keys = 0 AND EXISTS (
+			SELECT 1 FROM user_ng_device_ids d JOIN known k ON k.device_id = d.device_id WHERE d.profile_id = u.profile_id))
+		OR ($3 != '' AND u.last_ip_address = $3)
+		OR ($4 != '' AND u.last_ip_address = $4))
+	ORDER BY u.ban_expires DESC LIMIT 1`
 )
 
 var (
@@ -61,6 +61,17 @@ var (
 	ErrProhibitedDeviceID = errors.New("used prohibited NG device ID in request")
 	ErrProfileBannedTOS   = errors.New("profile is banned for violating the Terms of Service")
 )
+
+func canUseAdditionalDeviceID(policy string, lastIPAddress *string, ipAddress string) bool {
+	switch policy {
+	case "always":
+		return true
+	case "SameIPAddress":
+		return lastIPAddress != nil && ipAddress == *lastIPAddress
+	default:
+		return false
+	}
+}
 
 func (c *Connection) LoginUserToGPCM(userId uint64, gsbrcd string, profileId uint32, defaultKey bool, ngDeviceId uint32, ipAddress string, ingamesn string, deviceAuth bool) (User, error) {
 	var exists bool
@@ -99,10 +110,11 @@ func (c *Connection) LoginUserToGPCM(userId uint64, gsbrcd string, profileId uin
 		var lastName *string
 		var allowDefaultKeys bool
 
-		err := c.pool.QueryRow(c.ctx, GetUserProfileID, userId, gsbrcd).Scan(&user.ProfileId, &user.NgDeviceId, &user.Email, &user.UniqueNick, &firstName, &lastName, &user.OpenHost, &lastIPAddress, &allowDefaultKeys)
+		err := c.pool.QueryRow(c.ctx, GetUserProfileID, userId, gsbrcd).Scan(&user.ProfileId, &user.Email, &user.UniqueNick, &firstName, &lastName, &user.OpenHost, &lastIPAddress, &allowDefaultKeys)
 		if err != nil {
 			return User{}, err
 		}
+		user.NgDeviceId = c.getNgDeviceIds(user.ProfileId)
 
 		if defaultKey && !allowDefaultKeys && !common.GetConfig().AllowDefaultDolphinKeys {
 			return User{}, ErrProhibitedDeviceID
@@ -126,7 +138,7 @@ func (c *Connection) LoginUserToGPCM(userId uint64, gsbrcd string, profileId uin
 			if !validDeviceId && id == 0 {
 				// Replace the 0 with the actual device ID
 				user.NgDeviceId[index] = ngDeviceId
-				_, err = c.pool.Exec(c.ctx, UpdateUserNGDeviceID, user.ProfileId, user.NgDeviceId)
+				err = c.setNgDeviceIds(user.ProfileId, user.NgDeviceId)
 				validDeviceId = true
 			}
 
@@ -134,11 +146,9 @@ func (c *Connection) LoginUserToGPCM(userId uint64, gsbrcd string, profileId uin
 		}
 
 		if !validDeviceId && ngDeviceId != 0 {
-			if len(user.NgDeviceId) > 0 && common.GetConfig().AllowMultipleDeviceIDs != "always" {
-				if common.GetConfig().AllowMultipleDeviceIDs == "SameIPAddress" && (lastIPAddress == nil || ipAddress != *lastIPAddress) {
-					logging.Error("DATABASE", "NG device ID mismatch for profile", aurora.Cyan(user.ProfileId), "- expected one of {", deviceIdList[:len(deviceIdList)-2], "} but got", aurora.Cyan(fmt.Sprintf("%08x", ngDeviceId)))
-					return User{}, ErrDeviceIDMismatch
-				}
+			if len(user.NgDeviceId) > 0 && !canUseAdditionalDeviceID(common.GetConfig().AllowMultipleDeviceIDs, lastIPAddress, ipAddress) {
+				logging.Error("DATABASE", "NG device ID mismatch for profile", aurora.Cyan(user.ProfileId), "- expected one of {", deviceIdList[:len(deviceIdList)-2], "} but got", aurora.Cyan(fmt.Sprintf("%08x", ngDeviceId)))
+				return User{}, ErrDeviceIDMismatch
 			}
 
 			if len(user.NgDeviceId) > 0 {
@@ -146,7 +156,7 @@ func (c *Connection) LoginUserToGPCM(userId uint64, gsbrcd string, profileId uin
 			}
 
 			user.NgDeviceId = append(user.NgDeviceId, ngDeviceId)
-			_, err = c.pool.Exec(c.ctx, UpdateUserNGDeviceID, user.ProfileId, user.NgDeviceId)
+			err = c.setNgDeviceIds(user.ProfileId, user.NgDeviceId)
 		} else if deviceAuth && !validDeviceId && ngDeviceId == 0 {
 			if len(user.NgDeviceId) > 0 && !common.GetConfig().AllowConnectWithoutDeviceID {
 				logging.Error("DATABASE", "NG device ID not provided for profile", aurora.Cyan(user.ProfileId), "- expected one of {", deviceIdList[:len(deviceIdList)-2], "} but got", aurora.Cyan("00000000"))
@@ -193,13 +203,14 @@ func (c *Connection) LoginUserToGPCM(userId uint64, gsbrcd string, profileId uin
 	// Find ban from device ID or IP address
 	var banExists bool
 	var banTOS bool
-	var bannedDeviceIdList []uint32
+	var bannedDeviceIdJSON []byte
 	var banReason string
 	timeNow := time.Now().UTC()
-	err = c.pool.QueryRow(c.ctx, SearchUserBan, user.NgDeviceId, user.ProfileId, ipAddress, *lastIPAddress, timeNow).Scan(&banExists, &banTOS, &bannedDeviceIdList, &banReason)
+	err = c.pool.QueryRow(c.ctx, SearchUserBan, deviceIdsToJSON(user.NgDeviceId), user.ProfileId, ipAddress, *lastIPAddress, timeNow).Scan(&banExists, &banTOS, &bannedDeviceIdJSON, &banReason)
+	bannedDeviceIdList := parseDeviceIdsJSON(bannedDeviceIdJSON)
 
 	if err != nil {
-		if err != pgx.ErrNoRows {
+		if err != sql.ErrNoRows {
 			return User{}, err
 		}
 
@@ -251,10 +262,11 @@ func (c *Connection) LoginUserToGameStats(userId uint64, gsbrcd string) (User, e
 	var lastIPAddress *string
 	var allowDefaultKeys bool
 
-	err := c.pool.QueryRow(c.ctx, GetUserProfileID, userId, gsbrcd).Scan(&user.ProfileId, &user.NgDeviceId, &user.Email, &user.UniqueNick, &firstName, &lastName, &user.OpenHost, &lastIPAddress, &allowDefaultKeys)
+	err := c.pool.QueryRow(c.ctx, GetUserProfileID, userId, gsbrcd).Scan(&user.ProfileId, &user.Email, &user.UniqueNick, &firstName, &lastName, &user.OpenHost, &lastIPAddress, &allowDefaultKeys)
 	if err != nil {
 		return User{}, err
 	}
+	user.NgDeviceId = c.getNgDeviceIds(user.ProfileId)
 
 	if firstName != nil {
 		user.FirstName = *firstName

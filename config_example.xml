@@ -89,6 +89,9 @@
       -->
      <apiSecret>hQ3f57b3tW2WnjJH3v</apiSecret>
 
+     <!-- Host Manager web panel and admin API. LAN access is opt-in. -->
+     <adminAddress>127.0.0.1:29990</adminAddress>
+
      <eventReporting>
           <!-- Enable to log events to the "events" table in the database -->
           <logToDatabase>true</logToDatabase>

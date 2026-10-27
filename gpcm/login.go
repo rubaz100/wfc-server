@@ -99,11 +99,11 @@ func verifySignature(moduleName string, authToken string, signature string) (def
 
 	ngId := sigBytes[0x000:0x004]
 
-	if !allowDefaultDolphinKeys {
+	if !allowDefaultDolphinKeys.Load() {
 		// Skip authentication signature verification for common device IDs (the caller should handle this)
 		for _, defaultDeviceId := range commonDeviceIds {
 			if binary.BigEndian.Uint32(ngId) == defaultDeviceId {
-				if !allowDefaultDolphinKeys {
+				if !allowDefaultDolphinKeys.Load() {
 					logging.Warn(moduleName, "Using default NG device ID")
 				}
 				result = defaultDeviceId

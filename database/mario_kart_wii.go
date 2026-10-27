@@ -1,9 +1,8 @@
 package database
 
 import (
+	"database/sql"
 	"wwfc/common"
-
-	"github.com/jackc/pgx/v4"
 )
 
 type MarioKartWiiTopTenRanking struct {
@@ -150,7 +149,7 @@ func (c *Connection) GetMKWFriendInfo(profileId uint32) string {
 
 func (c *Connection) UpdateMKWFriendInfo(profileId uint32, info string) {
 	records, err := c.GetSakeRecords(1687, []int32{int32(profileId)}, "FriendInfo", nil, []string{"info"}, "")
-	if err == pgx.ErrNoRows || (err == nil && len(records) == 0) {
+	if err == sql.ErrNoRows || (err == nil && len(records) == 0) {
 		// No existing record, insert new one
 		record := SakeRecord{
 			GameId:  1687,

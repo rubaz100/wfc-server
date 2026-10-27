@@ -1,13 +1,13 @@
 package gamestats
 
 import (
+	"database/sql"
 	"strconv"
 	"strings"
 	"time"
 	"wwfc/common"
 	"wwfc/logging"
 
-	"github.com/jackc/pgx/v4"
 	"github.com/logrusorgru/aurora/v3"
 )
 
@@ -79,7 +79,7 @@ func (g *GameStatsSession) setpd(command common.GameSpyCommand) {
 	var modifiedTime time.Time
 	_, _, err := db.GetGameStatsPublicData(g.User.ProfileId, dindex, ptype)
 	if err != nil {
-		if err != pgx.ErrNoRows {
+		if err != sql.ErrNoRows {
 			logging.Error(g.ModuleName, "GetGameStatsPublicData returned", err)
 			g.Write(errMsg)
 			return
