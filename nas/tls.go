@@ -73,7 +73,10 @@ func setupRealTLS(privKeyPath string, certsPath string) error {
 	if err != nil {
 		return fmt.Errorf("parse modern TLS key pair: %w", err)
 	}
-	realTLSConfig = &tls.Config{Certificates: []tls.Certificate{cert}, MinVersion: tls.VersionTLS12}
+	// Accept down to TLS 1.0: real consoles use the custom handshake above, but
+	// emulators (Dolphin caps the Wii's SSL at TLS 1.1 via mbedTLS) take this
+	// standard-TLS path, and a 1.2 floor rejects their ClientHello outright.
+	realTLSConfig = &tls.Config{Certificates: []tls.Certificate{cert}, MinVersion: tls.VersionTLS10}
 	return nil
 }
 
