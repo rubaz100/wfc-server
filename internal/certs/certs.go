@@ -36,7 +36,75 @@ func DefaultPaths(dataDir string) Paths {
 	}
 }
 
+// Sources names optional pre-made certificate files to import instead of
+// generating fresh ones. The modern pair (ModernCert/ModernKey) and the Wii
+// pair (WiiCert/WiiKey) are independent: when a pair's fields are set the
+// supplied files are copied in, and when they are empty that pair is generated.
+// Supplying only one half of a pair is an error.
+type Sources struct {
+	ModernCert, ModernKey string
+	WiiCert, WiiKey       string
+}
+
+func (s Sources) hasModern() bool { return s.ModernCert != "" || s.ModernKey != "" }
+func (s Sources) hasWii() bool    { return s.WiiCert != "" || s.WiiKey != "" }
+
+// Any reports whether any pre-made certificate file was supplied.
+func (s Sources) Any() bool { return s.hasModern() || s.hasWii() }
+
+// Generate writes freshly generated modern and Wii certificate material to
+// paths and validates the result.
 func Generate(paths Paths, domain string, lanIP net.IP, now time.Time) error {
+	return Provision(paths, Sources{}, domain, lanIP, now)
+}
+
+// Provision writes the certificate material to paths: each pair named in
+// sources is imported from the supplied files, and every pair left unset is
+// generated. The result is validated before returning, so imported files must
+// already satisfy the same requirements generated ones do (see Validate):
+// the modern certificate an RSA key of at least 2048 bits, and the Wii pair an
+// RSA-1024 PKCS#8 key with a certificate carrying the compatibility mutation.
+// lanIP is only required when the modern certificate is generated.
+func Provision(paths Paths, sources Sources, domain string, lanIP net.IP, now time.Time) error {
+	if sources.hasModern() {
+		if err := importPair(sources.ModernCert, paths.ModernCert, 0644, sources.ModernKey, paths.ModernKey); err != nil {
+			return fmt.Errorf("import modern NAS certificate: %w", err)
+		}
+	} else if err := generateModern(paths, domain, lanIP, now); err != nil {
+		return err
+	}
+	if sources.hasWii() {
+		if err := importPair(sources.WiiCert, paths.WiiCert, 0644, sources.WiiKey, paths.WiiKey); err != nil {
+			return fmt.Errorf("import Wii certificate: %w", err)
+		}
+	} else if err := generateWii(paths, now); err != nil {
+		return err
+	}
+	return Validate(paths)
+}
+
+// importPair copies a supplied certificate and private key to their
+// destinations, refusing to overwrite an existing file (writeNew is O_EXCL) and
+// requiring both halves of the pair.
+func importPair(certSrc, certDst string, certMode os.FileMode, keySrc, keyDst string) error {
+	if certSrc == "" || keySrc == "" {
+		return fmt.Errorf("both a certificate and its private key must be supplied together")
+	}
+	if err := copyNew(certSrc, certDst, certMode); err != nil {
+		return err
+	}
+	return copyNew(keySrc, keyDst, 0600)
+}
+
+func copyNew(src, dst string, mode os.FileMode) error {
+	data, err := os.ReadFile(src)
+	if err != nil {
+		return fmt.Errorf("read %s: %w", src, err)
+	}
+	return writeNew(dst, data, mode)
+}
+
+func generateModern(paths Paths, domain string, lanIP net.IP, now time.Time) error {
 	if lanIP == nil || lanIP.To4() == nil || !lanIP.IsPrivate() {
 		return fmt.Errorf("certificate LAN address must be a private IPv4 address")
 	}
@@ -72,7 +140,10 @@ func Generate(paths Paths, domain string, lanIP net.IP, now time.Time) error {
 	if err := writeNew(paths.ModernCert, pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: modernDER}), 0644); err != nil {
 		return err
 	}
+	return nil
+}
 
+func generateWii(paths Paths, now time.Time) error {
 	wiiKey, err := rsa.GenerateKey(rand.Reader, 1024)
 	if err != nil {
 		return err
@@ -98,7 +169,7 @@ func Generate(paths Paths, domain string, lanIP net.IP, now time.Time) error {
 	if err := writeNew(paths.WiiCert, mutated, 0644); err != nil {
 		return err
 	}
-	return Validate(paths)
+	return nil
 }
 
 func createWiiCertificate(key *rsa.PrivateKey, now time.Time) ([]byte, error) {

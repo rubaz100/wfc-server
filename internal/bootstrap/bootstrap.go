@@ -20,7 +20,12 @@ type Result struct {
 	Created bool
 }
 
-func Ensure(dataDir, lanAddress string) (Result, error) {
+// Ensure prepares the data directory and returns the loaded configuration and
+// payload catalog. On first-run initialization, imported (when non-nil) names
+// pre-made certificate files to copy in instead of generating fresh ones; it is
+// rejected on an already-initialized directory, where the stored certificates
+// are used as-is.
+func Ensure(dataDir, lanAddress string, imported *certs.Sources) (Result, error) {
 	if err := common.SetDataPath(dataDir); err != nil {
 		return Result{}, err
 	}
@@ -68,6 +73,9 @@ func Ensure(dataDir, lanAddress string) (Result, error) {
 	}
 	common.SetGameList(bundle.Files["game_list.tsv"])
 	if !created {
+		if imported != nil && imported.Any() {
+			return Result{}, fmt.Errorf("data directory is already initialized; its certificates will not be replaced (remove the data directory to re-import, or use repair-certs)")
+		}
 		if _, err := os.Stat(common.ConfigPath()); err != nil {
 			return Result{}, fmt.Errorf("data directory is partially initialized or unrecognized: %w", err)
 		}
@@ -158,7 +166,11 @@ func Ensure(dataDir, lanAddress string) (Result, error) {
 	if _, err := payload.GeneratePrivateKey(keyPath); err != nil {
 		return fail(err)
 	}
-	if err := certs.Generate(paths, "mkwfc.lan", net.ParseIP(ip), time.Now()); err != nil {
+	sources := certs.Sources{}
+	if imported != nil {
+		sources = *imported
+	}
+	if err := certs.Provision(paths, sources, "mkwfc.lan", net.ParseIP(ip), time.Now()); err != nil {
 		return fail(err)
 	}
 	if err := writeNew(common.ConfigPath(), []byte(configText), 0600); err != nil {

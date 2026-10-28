@@ -22,7 +22,7 @@ func runtimeFixture(t *testing.T, includeAdmin bool) (bootstrap.Result, common.C
 	// bootstrap.Ensure requires a data directory with mode 0700 and refuses to
 	// chmod one it did not create. t.TempDir()'s sequential leaf is created
 	// 0777&^umask (0755 here), so hand Ensure a fresh child it creates at 0700.
-	result, err := bootstrap.Ensure(filepath.Join(t.TempDir(), "data"), "10.0.20.246")
+	result, err := bootstrap.Ensure(filepath.Join(t.TempDir(), "data"), "10.0.20.246", nil)
 	if err != nil {
 		t.Fatal(err)
 	}

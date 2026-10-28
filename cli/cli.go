@@ -34,6 +34,15 @@ type options struct {
 	dnsPort   string
 	httpPort  string
 	httpsPort string
+	certPath  string
+	keyPath   string
+	wiiCert   string
+	wiiKey    string
+}
+
+// certSources builds the pre-made certificate import set from the init flags.
+func (o options) certSources() certs.Sources {
+	return certs.Sources{ModernCert: o.certPath, ModernKey: o.keyPath, WiiCert: o.wiiCert, WiiKey: o.wiiKey}
 }
 
 // Main is the mkwfc entry point. It returns a process exit code so callers can
@@ -74,11 +83,18 @@ func runCLI(arguments []string, stdout, stderr io.Writer) error {
 	flags.StringVar(&options.dnsPort, "dns-port", "", "development DNS port override")
 	flags.StringVar(&options.httpPort, "http-port", "", "development NAS HTTP port override")
 	flags.StringVar(&options.httpsPort, "https-port", "", "development NAS HTTPS port override")
+	flags.StringVar(&options.certPath, "cert", "", "import this modern TLS certificate (PEM) instead of generating one")
+	flags.StringVar(&options.keyPath, "key", "", "import this modern TLS private key (PEM) instead of generating one")
+	flags.StringVar(&options.wiiCert, "wii-cert", "", "import this Wii NAS certificate (DER) instead of generating one")
+	flags.StringVar(&options.wiiKey, "wii-key", "", "import this Wii NAS private key (PKCS#8 PEM) instead of generating one")
 	if err := flags.Parse(arguments[1:]); err != nil {
 		return err
 	}
 	if flags.NArg() != 0 {
 		return fmt.Errorf("unexpected arguments: %v", flags.Args())
+	}
+	if command != "init" && options.certSources().Any() {
+		return fmt.Errorf("--cert/--key/--wii-cert/--wii-key are only valid with init; the stored certificates are used otherwise")
 	}
 	if options.lanIP == "" {
 		address, err := dnssrv.DetectLANAddress()
@@ -88,7 +104,13 @@ func runCLI(arguments []string, stdout, stderr io.Writer) error {
 			return err
 		}
 	}
-	result, err := bootstrap.Ensure(options.dataDir, options.lanIP)
+	var imported *certs.Sources
+	if command == "init" {
+		if sources := options.certSources(); sources.Any() {
+			imported = &sources
+		}
+	}
+	result, err := bootstrap.Ensure(options.dataDir, options.lanIP, imported)
 	if err != nil {
 		return err
 	}
@@ -229,5 +251,6 @@ func commandContext() context.Context {
 func printUsage(writer io.Writer) {
 	fmt.Fprintln(writer, "Usage: mkwfc <init|run|doctor|repair-certs> [--data-dir DIR] [--lan-ip IPv4]")
 	fmt.Fprintln(writer, "Development overrides: --dns-port PORT --http-port PORT --https-port PORT")
+	fmt.Fprintln(writer, "init may import pre-made certificates: --cert PEM --key PEM --wii-cert DER --wii-key PKCS8-PEM")
 	fmt.Fprintln(writer, "repair-certs backs up and replaces only an incompatible Wii certificate, preserving its key.")
 }

@@ -59,6 +59,54 @@ func TestGenerateAndValidate(t *testing.T) {
 	}
 }
 
+func TestProvisionImportsSuppliedCertificates(t *testing.T) {
+	// Generate a valid set to act as the operator's pre-made certificates.
+	source := DefaultPaths(t.TempDir())
+	if err := Generate(source, "mkwfc.lan", net.ParseIP("10.0.20.246"), time.Now()); err != nil {
+		t.Fatal(err)
+	}
+
+	// Import both pairs into a fresh data directory (no LAN IP needed).
+	imported := DefaultPaths(t.TempDir())
+	sources := Sources{ModernCert: source.ModernCert, ModernKey: source.ModernKey, WiiCert: source.WiiCert, WiiKey: source.WiiKey}
+	if err := Provision(imported, sources, "mkwfc.lan", nil, time.Now()); err != nil {
+		t.Fatalf("import both pairs: %v", err)
+	}
+	for _, pair := range [][2]string{{source.ModernCert, imported.ModernCert}, {source.ModernKey, imported.ModernKey}, {source.WiiCert, imported.WiiCert}, {source.WiiKey, imported.WiiKey}} {
+		want, _ := os.ReadFile(pair[0])
+		got, _ := os.ReadFile(pair[1])
+		if !bytes.Equal(want, got) {
+			t.Fatalf("imported file %s does not match the supplied source", pair[1])
+		}
+	}
+	if info, err := os.Stat(imported.ModernKey); err != nil || info.Mode().Perm() != 0600 {
+		t.Fatalf("imported modern key mode = %v, err %v", info.Mode(), err)
+	}
+
+	// A mixed run imports the modern pair and generates the Wii pair.
+	mixed := DefaultPaths(t.TempDir())
+	if err := Provision(mixed, Sources{ModernCert: source.ModernCert, ModernKey: source.ModernKey}, "mkwfc.lan", net.ParseIP("10.0.20.246"), time.Now()); err != nil {
+		t.Fatalf("import modern + generate Wii: %v", err)
+	}
+	generatedWii, _ := os.ReadFile(mixed.WiiCert)
+	if bytes.Count(generatedWii, mutatedWiiSignatureMarker) != 1 {
+		t.Fatal("mixed provisioning did not generate a mutated Wii certificate")
+	}
+}
+
+func TestProvisionRejectsHalfOfAPair(t *testing.T) {
+	source := DefaultPaths(t.TempDir())
+	if err := Generate(source, "mkwfc.lan", net.ParseIP("10.0.20.246"), time.Now()); err != nil {
+		t.Fatal(err)
+	}
+	// Supplying only the certificate (no key) of the modern pair must fail
+	// before anything is written.
+	dest := DefaultPaths(t.TempDir())
+	if err := Provision(dest, Sources{ModernCert: source.ModernCert}, "mkwfc.lan", net.ParseIP("10.0.20.246"), time.Now()); err == nil {
+		t.Fatal("import with a missing private key was accepted")
+	}
+}
+
 func TestRejectsMalformedWiiMaterial(t *testing.T) {
 	directory := t.TempDir()
 	certPath := filepath.Join(directory, "bad.der")
