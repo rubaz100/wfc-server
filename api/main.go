@@ -21,6 +21,9 @@ func StartServer(reload bool) {
 	// Start SQL
 	db = database.Start(config)
 
+	// Cache whether an admin password exists (drives the bootstrap fallback).
+	loadAdminState()
+
 	db.RegisterEvents(config, []string{
 		"profile_kicked",
 		"profile_banned",
@@ -52,4 +55,9 @@ func RegisterExtendedHandlers(mux *http.ServeMux) {
 	mux.HandleFunc("/api/motd", HandleMOTD)
 	mux.HandleFunc("/api/config", HandleConfig)
 	mux.HandleFunc("/api/profile", HandleProfile)
+	mux.HandleFunc("/api/auth/status", HandleAuthStatus)
+	mux.HandleFunc("/api/setup", HandleSetup)
+	mux.HandleFunc("/api/login", HandleLogin)
+	mux.HandleFunc("/api/logout", HandleLogout)
+	mux.HandleFunc("/api/password", HandleChangePassword)
 }

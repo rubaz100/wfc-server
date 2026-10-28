@@ -3,10 +3,11 @@
 /* ---------- State & helpers ---------- */
 const SECRET_KEY = "wfc_admin_secret";
 const state = {
-	secret: localStorage.getItem(SECRET_KEY) || "",
+	secret: localStorage.getItem(SECRET_KEY) || "", // holds a session token once logged in
 	view: "dashboard",
 	config: null,
 	timer: null,
+	gateMode: "login",
 };
 
 const $ = (sel, root = document) => root.querySelector(sel);
@@ -112,32 +113,61 @@ function showGate(err = "") {
 	$("#gate").classList.remove("hidden");
 	$("#gate-error").textContent = err;
 	$("#gate-secret").value = "";
+	$("#gate-newpass").value = "";
 	$("#gate-secret").focus();
 }
 function showApp() {
 	$("#gate").classList.add("hidden");
 	$("#app").classList.remove("hidden");
 }
+// The gate has two modes: "login" (enter admin password) and "setup" (first
+// run — enter the config.xml apiSecret to authorize, then choose a password).
+function setGateMode(mode) {
+	state.gateMode = mode;
+	const setup = mode === "setup";
+	$("#gate-desc").textContent = setup
+		? "First-time setup: enter the apiSecret from config.xml to authorize, then choose an admin password."
+		: "Enter your admin password.";
+	$("#gate-secret").placeholder = setup ? "apiSecret (from config.xml)" : "Admin password";
+	$("#gate-newpass").classList.toggle("hidden", !setup);
+	$("#gate-submit").textContent = setup ? "Set password" : "Unlock";
+}
+async function enterApp() {
+	state.config = await apiGet("/api/config");
+	showApp();
+	setView(state.view);
+	startPolling();
+}
 $("#gate-form").addEventListener("submit", async (e) => {
 	e.preventDefault();
-	const secret = $("#gate-secret").value.trim();
-	if (!secret) return;
-	state.secret = secret;
+	const field = $("#gate-secret").value.trim();
+	if (!field) return;
 	try {
-		state.config = await apiGet("/api/config"); // verifies the secret
-		if ($("#gate-remember").checked) localStorage.setItem(SECRET_KEY, secret);
-		showApp();
-		setView(state.view);
-		startPolling();
+		let resp;
+		if (state.gateMode === "setup") {
+			const pw = $("#gate-newpass").value;
+			if (pw.length < 8) { $("#gate-error").textContent = "Password must be at least 8 characters."; return; }
+			resp = await apiPost("/api/setup", { secret: field, password: pw });
+		} else {
+			resp = await apiPost("/api/login", { password: field });
+		}
+		state.secret = resp.token;
+		if ($("#gate-remember").checked) localStorage.setItem(SECRET_KEY, state.secret);
+		else localStorage.removeItem(SECRET_KEY);
+		await enterApp();
 	} catch (err) {
 		state.secret = "";
-		$("#gate-error").textContent = err.auth ? "Wrong secret." : "Could not reach server.";
+		if (err.data && err.data.error === "setup_required") { setGateMode("login"); $("#gate-error").textContent = "Enter your admin password."; return; }
+		if (err.data && err.data.error === "setup_already_done") { setGateMode("login"); $("#gate-error").textContent = "A password is already set — log in."; return; }
+		$("#gate-error").textContent = err.auth ? (state.gateMode === "setup" ? "Wrong apiSecret." : "Wrong password.") : "Could not reach server.";
 	}
 });
-$("#btn-logout").addEventListener("click", () => {
+$("#btn-logout").addEventListener("click", async () => {
+	try { await apiPost("/api/logout", {}); } catch { /* best effort */ }
 	localStorage.removeItem(SECRET_KEY);
 	state.secret = "";
 	stopPolling();
+	setGateMode("login");
 	showGate("Locked.");
 });
 
@@ -356,6 +386,14 @@ async function renderSettings() {
 				<div class="form-actions"><button class="btn btn-primary" type="submit">Save MOTD</button></div>
 			</form></div>
 
+			<div class="section-title">Admin password</div>
+			<div class="card"><form class="stack" id="password-form">
+				<div class="field"><label for="pw-current">Current password</label><input type="password" id="pw-current" autocomplete="current-password" placeholder="Required"></div>
+				<div class="field"><label for="pw-new">New password</label><input type="password" id="pw-new" autocomplete="new-password" placeholder="At least 8 characters"></div>
+				<span class="hint">Stored hashed in the SQLite database. Changing it does not log out existing sessions.</span>
+				<div class="form-actions"><button class="btn btn-primary" type="submit">Change password</button></div>
+			</form></div>
+
 			<div class="section-title">WFC server</div>
 			<div class="card"><form class="stack" id="config-form">
 				<div class="field">
@@ -402,6 +440,19 @@ async function renderSettings() {
 			e.preventDefault();
 			try { await apiPost("/api/motd", { text: $("#motd-text").value }); toast("MOTD saved", "good"); }
 			catch (err) { onError(err); }
+		});
+		$("#password-form").addEventListener("submit", async (e) => {
+			e.preventDefault();
+			const newPw = $("#pw-new").value;
+			if (newPw.length < 8) { toast("New password must be at least 8 characters", "bad"); return; }
+			try {
+				await apiPost("/api/password", { current_password: $("#pw-current").value, new_password: newPw });
+				toast("Password changed", "good");
+				$("#pw-current").value = ""; $("#pw-new").value = "";
+			} catch (err) {
+				if (err.data && err.data.error === "invalid_password") { toast("Current password is wrong, or new password too short", "bad"); return; }
+				onError(err);
+			}
 		});
 		$("#config-form").addEventListener("submit", async (e) => {
 			e.preventDefault();
@@ -585,10 +636,14 @@ function banModal(pid, name, ng) {
 }
 
 /* ---------- Boot ---------- */
-if (state.secret) {
-	apiGet("/api/config")
-		.then((cfg) => { state.config = cfg; showApp(); setView("dashboard"); startPolling(); })
-		.catch(() => showGate());
-} else {
+(async function boot() {
+	let status;
+	try { status = await apiGet("/api/auth/status"); }
+	catch { status = { password_set: true }; }
+	setGateMode(status.password_set ? "login" : "setup");
+	if (status.password_set && state.secret) {
+		try { await enterApp(); return; } // stored token still valid
+		catch { state.secret = ""; }
+	}
 	showGate();
-}
+})();

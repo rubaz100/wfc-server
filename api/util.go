@@ -24,6 +24,9 @@ const (
 	APIErrorUnbanFailed          APIErrorString = "unban_failed"
 	APIErrorBanNotFound          APIErrorString = "ban_not_found"
 	APIErrorInternal             APIErrorString = "internal_error"
+	APIErrorInvalidPassword      APIErrorString = "invalid_password"
+	APIErrorSetupRequired        APIErrorString = "setup_required"
+	APIErrorSetupAlreadyDone     APIErrorString = "setup_already_done"
 )
 
 type APIError struct {
@@ -150,7 +153,17 @@ func authenticate(authInfo AuthInfo, requiredRole Role) bool {
 	if requiredRole == RoleNone {
 		return true
 	}
-	return len(apiSecret) >= 16 && subtle.ConstantTimeCompare([]byte(authInfo.Secret), []byte(apiSecret)) == 1
+	// A valid Host Manager session token always authenticates.
+	if validToken(authInfo.Secret) {
+		return true
+	}
+	// The config.xml apiSecret is a bootstrap credential: it authenticates only
+	// until an admin password has been set, after which password/token is
+	// required.
+	if !IsAdminPasswordSet() {
+		return len(apiSecret) >= 16 && subtle.ConstantTimeCompare([]byte(authInfo.Secret), []byte(apiSecret)) == 1
+	}
+	return false
 }
 
 func replyError(w http.ResponseWriter, statusCode int, errMsg APIErrorString) {

@@ -13,10 +13,11 @@
 		<form class="gate-card" id="gate-form">
 			<div class="gate-logo">🏁</div>
 			<h1>mkwfc Host Manager</h1>
-			<p>Enter the API secret to manage the server. It's the <code>apiSecret</code> value from <code>config.xml</code>.</p>
-			<input type="password" id="gate-secret" placeholder="API secret" autocomplete="current-password">
+			<p id="gate-desc">Enter your admin password.</p>
+			<input type="password" id="gate-secret" placeholder="Admin password" autocomplete="current-password">
+			<input type="password" id="gate-newpass" class="hidden" placeholder="New admin password (min 8 chars)" autocomplete="new-password">
 			<label class="gate-remember"><input type="checkbox" id="gate-remember" checked> Remember on this device</label>
-			<button type="submit" class="btn btn-primary">Unlock</button>
+			<button type="submit" class="btn btn-primary" id="gate-submit">Unlock</button>
 			<div class="gate-error" id="gate-error"></div>
 		</form>
 	</div>
