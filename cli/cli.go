@@ -17,6 +17,7 @@ import (
 	"os/signal"
 	"path/filepath"
 	"strconv"
+	"strings"
 	"syscall"
 	"time"
 	"wwfc/common"
@@ -164,9 +165,19 @@ func applyOverrides(config *common.Config, options options) error {
 	*config.GameSpyAddress = config.LANAddress
 	*config.NASAddress = config.LANAddress
 	*config.NASAddressHTTPS = config.LANAddress
-	if options.dnsPort != "" {
-		config.DNSAddress = net.JoinHostPort(config.LANAddress, options.dnsPort)
+	// Always rebind DNS on the (possibly overridden) LAN address, keeping the
+	// stored port unless --dns-port overrides it. Without this, --lan-ip leaves
+	// DNSAddress pointing at the old config.xml host and the bind fails with
+	// "can't assign requested address".
+	dnsPort := options.dnsPort
+	if dnsPort == "" {
+		if _, port, splitErr := net.SplitHostPort(config.DNSAddress); splitErr == nil && port != "" {
+			dnsPort = port
+		} else {
+			dnsPort = "53"
+		}
 	}
+	config.DNSAddress = net.JoinHostPort(config.LANAddress, dnsPort)
 	if options.httpPort != "" {
 		config.NASPort = options.httpPort
 	}
@@ -224,6 +235,9 @@ func runServer(ctx context.Context, result bootstrap.Result, options options, st
 	if err := applyOverrides(&config, options); err != nil {
 		return err
 	}
+	if err := checkLANAddressLocal(config.LANAddress); err != nil {
+		return err
+	}
 	specs, err := bindSpecs(config)
 	if err != nil {
 		return err
@@ -241,6 +255,40 @@ func runServer(ctx context.Context, result bootstrap.Result, options options, st
 	fmt.Fprintln(stdout, "Host Manager:", "http://"+config.AdminAddress+"/")
 	fmt.Fprintln(stdout, "Gecko codes for this server's key:", common.DataPath("gecko"))
 	return server.RunSingle(ctx, config, server.SingleOptions{Catalog: result.Catalog, Sockets: sockets})
+}
+
+// checkLANAddressLocal verifies the server's LAN address is actually assigned to
+// an interface on this machine, so the user gets a clear message instead of a
+// raw "bind: can't assign requested address" when they point --lan-ip (or a
+// stale config.xml) at an address the host no longer has.
+func checkLANAddressLocal(lanAddress string) error {
+	addrs, err := net.InterfaceAddrs()
+	if err != nil {
+		return nil // can't enumerate; let the bind surface any problem
+	}
+	var local []string
+	for _, a := range addrs {
+		ipNet, ok := a.(*net.IPNet)
+		if !ok {
+			continue
+		}
+		ip4 := ipNet.IP.To4()
+		if ip4 == nil {
+			continue
+		}
+		if ip4.String() == lanAddress {
+			return nil
+		}
+		if ip4.IsPrivate() {
+			local = append(local, ip4.String())
+		}
+	}
+	hint := "none found"
+	if len(local) > 0 {
+		hint = strings.Join(local, ", ")
+	}
+	return fmt.Errorf("LAN address %s is not assigned to any interface on this machine; "+
+		"re-run with --lan-ip set to this host's current private IPv4 (available: %s)", lanAddress, hint)
 }
 
 func commandContext() context.Context {
