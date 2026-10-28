@@ -34,6 +34,22 @@ const fmtRemaining = (t) => {
 	return hrs > 0 ? `${hrs}h ${mins}m left` : `${mins}m left`;
 };
 
+/* Mario Kart Wii course IDs, indexed by the in-match course id the server
+   reports (wl:mkw_select_course). Matches common.MarioKartWiiCourseId. */
+const COURSES = [
+	"Mario Circuit", "Moo Moo Meadows", "Mushroom Gorge", "Grumble Volcano",
+	"Toad's Factory", "Coconut Mall", "DK Summit", "Wario's Gold Mine",
+	"Luigi Circuit", "Daisy Circuit", "Moonview Highway", "Maple Treeway",
+	"Bowser's Castle", "Rainbow Road", "Dry Dry Ruins", "Koopa Cape",
+	"GCN Peach Beach", "GCN Mario Circuit", "GCN Waluigi Stadium", "GCN DK Mountain",
+	"DS Yoshi Falls", "DS Desert Hills", "DS Peach Gardens", "DS Delfino Square",
+	"SNES Mario Circuit 3", "SNES Ghost Valley 2", "N64 Mario Raceway", "N64 Sherbet Land",
+	"N64 Bowser's Castle", "N64 DK's Jungle Parkway", "GBA Bowser Castle 3", "GBA Shy Guy Beach",
+];
+const courseName = (id) => (id >= 0 && id < COURSES.length ? COURSES[id] : `course ${id}`);
+const CC = { 0: "50cc", 1: "100cc", 2: "150cc", 3: "Mirror" };
+const ccName = (id) => CC[id] || `cc ${id}`;
+
 /* ---------- API ---------- */
 async function handle(res) {
 	if (res.status === 401) {
@@ -236,7 +252,7 @@ function roomCard(gr) {
 			<span class="tag ${typeTag}">${esc(gr.type || "?")}</span>
 			<span class="tag blue">${esc(gr.game)}</span>
 			${gr.rk ? `<span class="tag gray">${esc(gr.rk)}</span>` : ""}
-			${gr.race ? `<span class="tag gray">race ${gr.race.num} · cc ${gr.race.cc}</span>` : ""}
+			${gr.race ? `<span class="tag blue">🏁 ${esc(courseName(gr.race.course))}</span><span class="tag gray">${esc(ccName(gr.race.cc))} · race ${esc(gr.race.num)}</span>` : ""}
 			<span class="spacer"></span>
 			<span class="tag ${gr.suspend ? "gray" : "green"}">${gr.suspend ? "idle" : "live"}</span>
 			<span class="tag gray">${players.length} 👥</span>
@@ -250,6 +266,7 @@ function roomCard(gr) {
 					<td class="mono">${esc(p.pid)}</td>
 					<td class="mono">${esc(p.ev || p.eb || "—")}</td>
 					<td class="row-actions">
+						<button class="btn btn-sm" data-act="profile" data-pid="${esc(p.pid)}" data-name="${esc(p.name)}">Profile</button>
 						<button class="btn btn-sm" data-act="kick" data-pid="${esc(p.pid)}" data-name="${esc(p.name)}">Kick</button>
 						<button class="btn btn-sm btn-danger" data-act="ban" data-pid="${esc(p.pid)}" data-name="${esc(p.name)}">Ban</button>
 					</td>
@@ -272,6 +289,7 @@ async function renderPlayers() {
 				<td class="mono">${esc(p.device_id)}</td>
 				<td>${esc(p.game)}</td>
 				<td class="row-actions">
+					<button class="btn btn-sm" data-act="profile" data-pid="${esc(p.pid)}" data-name="${esc(p.name)}">Profile</button>
 					<button class="btn btn-sm" data-act="kick" data-pid="${esc(p.pid)}" data-name="${esc(p.name)}">Kick</button>
 					<button class="btn btn-sm btn-danger" data-act="ban" data-pid="${esc(p.pid)}" data-name="${esc(p.name)}" data-ng="${esc(p.device_id)}">Ban</button>
 				</td>
@@ -368,7 +386,7 @@ async function renderSettings() {
 			</form></div>
 
 			<div class="section-title">Mario Kart Wii</div>
-			<div class="note warn">Gameplay rules (engine class, items, track pool, teams) are chosen peer-to-peer by the in-game room host and can't be forced server-side yet — that needs client payload hooks (PLAN Phase 4). The MKWii-facing control available today is the Message of the Day above.</div>
+			<div class="note">Live match state is visible in <b>Rooms</b> (current course, engine class, race number, region); you can edit accounts and set a <b>per-player message</b> from <b>Players → Profile</b> (delivered as that player's MOTD on their next connect — server-only, no payload change). Gameplay the game itself owns — forcing a track, changing item behaviour, or a live mid-race popup — needs new client-payload hooks. Those run on unmodified consoles (the payload is injected at connect, no homebrew), but require building the payload with devkitPPC (PLAN Phase 4).</div>
 
 			<div class="section-title">Network (read-only — edit config.xml and restart)</div>
 			<div class="card"><div class="info-grid">
@@ -410,6 +428,7 @@ $("#content").addEventListener("click", async (e) => {
 	if (!btn) return;
 	const { act, pid, name, ng } = btn.dataset;
 
+	if (act === "profile") return profileModal(pid);
 	if (act === "kick") return kickModal(pid, name);
 	if (act === "ban") return banModal(pid, name, ng);
 	if (act === "manual-ban") return banModal("", "", "");
@@ -467,6 +486,52 @@ function kickModal(pid, name) {
 		try {
 			await apiPost("/api/kick", { pid: Number(pid), reason: $("#kick-reason").value });
 			toast("Kicked " + (name || "PID " + pid), "good");
+			closeModal();
+			if (POLLED.has(state.view)) render();
+		} catch (err) { onError(err); }
+	});
+}
+
+async function profileModal(pid) {
+	let p;
+	try { p = await apiGet("/api/profile", { pid }); }
+	catch (err) { return onError(err); }
+	const m = openModal(`
+		<div class="modal">
+			<h3>Edit profile</h3>
+			<p class="modal-sub">${esc(p.name) || "PID " + esc(p.pid)} · PID ${esc(p.pid)} ${p.online ? `<span class="tag green">online</span>` : `<span class="tag gray">offline</span>`}${p.restricted ? ` <span class="tag red">restricted</span>` : ""}</p>
+			<form class="stack" id="profile-form">
+				<div class="field"><label>In-game first name</label><input type="text" id="pf-first" value="${esc(p.firstname)}" maxlength="15"></div>
+				<div class="field"><label>In-game last name</label><input type="text" id="pf-last" value="${esc(p.lastname)}" maxlength="15"></div>
+				<div class="field switch"><input type="checkbox" id="pf-oh" ${p.open_host ? "checked" : ""}><label for="pf-oh" style="margin:0">Open host <span class="hint">— let anyone join this player's rooms without being friends</span></label></div>
+				<div class="field">
+					<label for="pf-msg">Message to this player</label>
+					<textarea id="pf-msg" maxlength="512" placeholder="Shown to only this player on the Nintendo WFC menu when they next connect. Blank = none.">${esc(p.message || "")}</textarea>
+					<span class="hint">Delivered as this player's MOTD (wl:motd) — appears at connect / on the WFC menu, not live mid-race. Takes effect next time they connect.</span>
+				</div>
+				<div class="card" style="margin:0"><div class="info-grid">
+					${infoRow("Friend code", fmtFC(p.fc))}
+					${infoRow("Game", p.game_code || "—")}
+					${infoRow("Email (login)", p.email || "—")}
+					${infoRow("GameSpy nick", p.unique_nick || "—")}
+					${infoRow("Last IP", p.last_ip || "—")}
+				</div></div>
+				<div class="note">Name and open-host are saved to the account database and apply to the live session when the player is online. Email/nick/friend code are account identity and read-only here.</div>
+				<div class="modal-actions"><button type="button" class="btn" data-close>Cancel</button><button type="submit" class="btn btn-primary">Save profile</button></div>
+			</form>
+		</div>`);
+	m.querySelector("[data-close]").addEventListener("click", closeModal);
+	m.querySelector("#profile-form").addEventListener("submit", async (e) => {
+		e.preventDefault();
+		try {
+			await apiPost("/api/profile", {
+				pid: Number(pid),
+				firstname: $("#pf-first").value,
+				lastname: $("#pf-last").value,
+				open_host: $("#pf-oh").checked,
+				message: $("#pf-msg").value,
+			});
+			toast("Profile saved", "good");
 			closeModal();
 			if (POLLED.has(state.view)) render();
 		} catch (err) { onError(err); }

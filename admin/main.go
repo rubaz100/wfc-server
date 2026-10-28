@@ -6,6 +6,7 @@ import (
 	"io/fs"
 	"net"
 	"net/http"
+	"os"
 	"time"
 	"wwfc/api"
 	"wwfc/common"
@@ -18,6 +19,22 @@ import (
 var webFS embed.FS
 
 var server *http.Server
+
+// webFileSystem returns the Host Manager's web assets. By default these are the
+// copy embedded in the binary. For GUI development, set MKWFC_WEB_DIR to the
+// admin/web source directory and the panel is served from disk instead, so
+// edits show on reload without rebuilding. Falls back to the embed if the path
+// is unset or missing.
+func webFileSystem() (fs.FS, error) {
+	if dir := os.Getenv("MKWFC_WEB_DIR"); dir != "" {
+		if info, err := os.Stat(dir); err == nil && info.IsDir() {
+			logging.Notice("ADMIN", "Serving web panel from disk:", aurora.BrightCyan(dir))
+			return os.DirFS(dir), nil
+		}
+		logging.Warn("ADMIN", "MKWFC_WEB_DIR not a directory; using embedded panel:", aurora.Cyan(dir))
+	}
+	return fs.Sub(webFS, "web")
+}
 
 // StartServer starts the Host Manager: the embedded web panel plus the admin
 // API, on config.AdminAddress (127.0.0.1 or LAN, depending on config).
@@ -35,11 +52,11 @@ func StartServerWithListener(reload bool, listener net.Listener) error {
 	}
 	mux := http.NewServeMux()
 	api.RegisterExtendedHandlers(mux)
-	sub, err := fs.Sub(webFS, "web")
+	webRoot, err := webFileSystem()
 	if err != nil {
 		return err
 	}
-	mux.Handle("/", http.FileServer(http.FS(sub)))
+	mux.Handle("/", http.FileServer(http.FS(webRoot)))
 	server = &http.Server{
 		Addr: address, Handler: mux, IdleTimeout: 20 * time.Second,
 		ReadTimeout: 10 * time.Second, WriteTimeout: 30 * time.Second,

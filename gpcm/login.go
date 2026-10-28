@@ -390,9 +390,18 @@ func (g *GameSpySession) login(command common.GameSpyCommand) {
 	}
 
 	if g.GameName == "mariokartwii" {
-		if motd, err := GetMessageOfTheDay(); err != nil {
-			logging.Info(g.ModuleName, err)
-		} else {
+		// A per-player message (set from the admin panel) takes precedence over
+		// the global MOTD for this player; both ride the same wl:motd field the
+		// client already shows on connect.
+		motd := GetPlayerMessage(g.User.ProfileId)
+		if motd == "" {
+			if global, err := GetMessageOfTheDay(); err != nil {
+				logging.Info(g.ModuleName, err)
+			} else {
+				motd = global
+			}
+		}
+		if motd != "" {
 			motdUTF16 := utf16.Encode([]rune(motd))
 			motdByteArray := common.UTF16ToByteArray(motdUTF16)
 			otherValues["wl:motd"] = common.Base64DwcEncoding.EncodeToString(motdByteArray)

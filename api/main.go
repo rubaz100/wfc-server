@@ -51,4 +51,5 @@ func RegisterExtendedHandlers(mux *http.ServeMux) {
 	mux.HandleFunc("/api/bans", HandleBans)
 	mux.HandleFunc("/api/motd", HandleMOTD)
 	mux.HandleFunc("/api/config", HandleConfig)
+	mux.HandleFunc("/api/profile", HandleProfile)
 }
