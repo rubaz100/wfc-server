@@ -20,8 +20,8 @@
     },
     {
       "path": "binary/payload.RMCPD00.bin",
-      "sha256": "22cdf0029d4474ed4a754e2d3a262afd5da65391227db90b296150147d1390bb",
-      "size": 22520,
+      "sha256": "6a07f3edbbbe143f9e0bd722b7b3b675e5add5bb77668a95583707e9848f1348",
+      "size": 23048,
       "source": "wfc-server/payload/binary/payload.RMCPD00.bin"
     },
     {
@@ -32,8 +32,8 @@
     },
     {
       "path": "binary/payload.RMCED00.bin",
-      "sha256": "5528d9a9d68e0382ce6dac8da0c94e7e72ee5709156795be3b69a26ad8f52397",
-      "size": 22520,
+      "sha256": "19c5af4daca9918fee89abba4ee254f6e113aac13f9576e0d94714f0ad72fc68",
+      "size": 23048,
       "source": "wfc-server/payload/binary/payload.RMCED00.bin"
     },
     {
@@ -44,8 +44,8 @@
     },
     {
       "path": "binary/payload.RMCJD00.bin",
-      "sha256": "3d1ffcec1e0dd0eb1fef88adfdf084f0ccf09602c4854cdd67341c8f951e20c0",
-      "size": 22520,
+      "sha256": "816796bbe038c3b463ba852d76bced2edcf9c82c9c7643192eed475303277f76",
+      "size": 23048,
       "source": "wfc-server/payload/binary/payload.RMCJD00.bin"
     },
     {
@@ -56,8 +56,8 @@
     },
     {
       "path": "binary/payload.RMCKD00.bin",
-      "sha256": "9ee9c4338e891fad20a43015fc2fbbd62a28893d761d46c289f05db795c461f9",
-      "size": 22520,
+      "sha256": "40b7e94fc4df060cca0ffe06d3e23464578e3ab9d39c57e98ae90c5f098ebd79",
+      "size": 23048,
       "source": "wfc-server/payload/binary/payload.RMCKD00.bin"
     },
     {
