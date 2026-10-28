@@ -85,6 +85,53 @@ func TestDescriptorPassingAndHighPortDirectBind(t *testing.T) {
 	}
 }
 
+// TestCloseAllReleasesHelperSocketPromptly guards TODO.md's clean-shutdown
+// requirement at the privileged-bind layer: closing the Sockets must close the
+// control connection so the helper releases its listening socket right away, and
+// must not block on reaping. A fresh rebind of the same port must then succeed
+// immediately. This uses runHelper directly (no osascript), so it stands in for
+// the privilegedBind teardown that CI cannot exercise through the GUI prompt.
+func TestCloseAllReleasesHelperSocketPromptly(t *testing.T) {
+	request := testRequest(Spec{Name: "tcp-test", Network: "tcp", Address: "127.0.0.1:0"})
+	listener, err := net.ListenUnix("unix", &net.UnixAddr{Name: filepath.Join(testRuntimeDir(t), "bind.sock"), Net: "unix"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer listener.Close()
+	done := make(chan error, 1)
+	go func() { done <- runHelper(request, listener.Addr().String()) }()
+	sockets, err := receiveSockets(listener, request)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer sockets.CloseAll() // backstop if an assertion fails before the explicit close
+	tcpListener, err := sockets.Listener("tcp-test")
+	if err != nil {
+		t.Fatal(err)
+	}
+	address := tcpListener.Addr().String()
+
+	start := time.Now()
+	sockets.CloseAll()
+	if elapsed := time.Since(start); elapsed > 2*time.Second {
+		t.Fatalf("CloseAll blocked for %s, want prompt", elapsed)
+	}
+	// The helper must have exited (and released its descriptor) by now.
+	select {
+	case err := <-done:
+		if err != nil {
+			t.Fatalf("helper exited with error: %v", err)
+		}
+	case <-time.After(2 * time.Second):
+		t.Fatal("helper did not exit after the control connection closed")
+	}
+	rebind, err := net.Listen("tcp", address)
+	if err != nil {
+		t.Fatalf("port %s still held after CloseAll: %v", address, err)
+	}
+	_ = rebind.Close()
+}
+
 func TestHelperPartialFailureClosesSockets(t *testing.T) {
 	udpProbe, err := net.ListenPacket("udp", "127.0.0.1:0")
 	if err != nil {

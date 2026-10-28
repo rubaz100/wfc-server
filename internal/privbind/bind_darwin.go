@@ -109,12 +109,19 @@ func privilegedBind(ctx context.Context, specs []Spec, runtimeDir string) (*Sock
 	// The helper stays alive holding the descriptors until we close the control
 	// connection (receiveSockets registered that close on the Sockets); closing
 	// the listening sockets early would drain their accept queues and break the
-	// sockets we just received. Reap the helper when the Sockets are closed, and
-	// close the Sockets if the context is cancelled.
+	// sockets we just received. By the time this closer runs the control
+	// connection has already been closed, so the helper's blocking Read has
+	// returned and it is releasing the listening sockets as it exits — the ports
+	// are freed by that, not by reaping osascript. Give the helper a brief grace
+	// to finish closing its descriptors so an immediate restart is not blocked by
+	// a lingering bind, but never let a slow or ctx-killed osascript
+	// (exec.CommandContext SIGKILLs it on cancel) hold up shutdown the way a
+	// blocking 5s wait here once did. The wait channel is buffered, so the
+	// cmd.Wait goroutine still reaps osascript even when we stop waiting for it.
 	sockets.addCloser(func() {
 		select {
 		case <-wait:
-		case <-time.After(5 * time.Second):
+		case <-time.After(500 * time.Millisecond):
 		}
 	})
 	go func() {
