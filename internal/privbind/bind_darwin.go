@@ -132,7 +132,10 @@ func privilegedBind(ctx context.Context, specs []Spec, runtimeDir string) (*Sock
 }
 
 func receiveSockets(listener *net.UnixListener, request Request) (*Sockets, error) {
-	_ = listener.SetDeadline(time.Now().Add(120 * time.Second))
+	// Wait for the helper to connect back. This spans the macOS "administrator
+	// privileges" GUI prompt, which the user must approve at the machine, so the
+	// window has to be comfortably longer than a quick click (5 minutes).
+	_ = listener.SetDeadline(time.Now().Add(300 * time.Second))
 	connection, err := listener.AcceptUnix()
 	if err != nil {
 		return nil, fmt.Errorf("accept descriptor connection: %w", err)
