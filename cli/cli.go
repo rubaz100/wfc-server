@@ -16,6 +16,7 @@ import (
 	"os"
 	"os/signal"
 	"path/filepath"
+	"runtime"
 	"strconv"
 	"strings"
 	"syscall"
@@ -80,7 +81,7 @@ func runCLI(arguments []string, stdout, stderr io.Writer) error {
 	flags.SetOutput(stderr)
 	var options options
 	flags.StringVar(&options.dataDir, "data-dir", defaultDirectory, "configuration and data directory")
-	flags.StringVar(&options.lanIP, "lan-ip", "", "private IPv4 address for this LAN server")
+	flags.StringVar(&options.lanIP, "lan-ip", "", "override the automatically detected private LAN IPv4 address")
 	flags.StringVar(&options.dnsPort, "dns-port", "", "development DNS port override")
 	flags.StringVar(&options.httpPort, "http-port", "", "development NAS HTTP port override")
 	flags.StringVar(&options.httpsPort, "https-port", "", "development NAS HTTPS port override")
@@ -97,11 +98,23 @@ func runCLI(arguments []string, stdout, stderr io.Writer) error {
 	if command != "init" && options.certSources().Any() {
 		return fmt.Errorf("--cert/--key/--wii-cert/--wii-key are only valid with init; the stored certificates are used otherwise")
 	}
-	if options.lanIP == "" {
+	if options.lanIP == "" && (command == "run" || command == "init") {
 		address, err := dnssrv.DetectLANAddress()
-		if err == nil {
-			options.lanIP = address.String()
-		} else if command == "init" {
+		if err != nil {
+			return fmt.Errorf("detect LAN interface: %w", err)
+		}
+		options.lanIP = address.String()
+	}
+	if options.lanIP != "" {
+		address, err := common.ValidatePrivateIPv4(options.lanIP)
+		if err != nil {
+			return err
+		}
+		options.lanIP = address
+	}
+	if command == "run" {
+		// Validate before first-run initialization or persisting a new binding.
+		if err := checkLANAddressLocal(options.lanIP); err != nil {
 			return err
 		}
 	}
@@ -124,8 +137,8 @@ func runCLI(arguments []string, stdout, stderr io.Writer) error {
 	case "init":
 		fmt.Fprintln(stdout, "Data directory:", common.DataPath())
 		fmt.Fprintln(stdout, "Host Manager:", "http://"+result.Config.AdminAddress+"/")
+		fmt.Fprintln(stdout, "Initial admin password: MKWii (only if no password is stored; change it in Settings)")
 		fmt.Fprintln(stdout, "Gecko codes:", common.DataPath("gecko"))
-		fmt.Fprintln(stdout, "The API secret is stored in config.xml; do not share it.")
 		fmt.Fprintln(stdout, "Set your Wii DNS to", result.Config.LANAddress)
 		return nil
 	case "repair-certs":
@@ -151,45 +164,34 @@ func runCLI(arguments []string, stdout, stderr io.Writer) error {
 }
 
 func applyOverrides(config *common.Config, options options) error {
-	var err error
-	if options.lanIP != "" {
-		config.LANAddress, err = common.ValidatePrivateIPv4(options.lanIP)
-		if err != nil {
-			return err
-		}
+	address := options.lanIP
+	if address == "" {
+		address = config.LANAddress
 	}
-	if _, err := common.ValidatePrivateIPv4(config.LANAddress); err != nil {
+	updated, err := common.WithLANAddress(*config, address)
+	if err != nil {
 		return err
 	}
-	config.DefaultAddress = config.LANAddress
-	*config.GameSpyAddress = config.LANAddress
-	*config.NASAddress = config.LANAddress
-	*config.NASAddressHTTPS = config.LANAddress
-	// Always rebind DNS on the (possibly overridden) LAN address, keeping the
-	// stored port unless --dns-port overrides it. Without this, --lan-ip leaves
-	// DNSAddress pointing at the old config.xml host and the bind fails with
-	// "can't assign requested address".
-	dnsPort := options.dnsPort
-	if dnsPort == "" {
-		if _, port, splitErr := net.SplitHostPort(config.DNSAddress); splitErr == nil && port != "" {
-			dnsPort = port
-		} else {
-			dnsPort = "53"
+	if options.dnsPort != "" {
+		host, _, err := net.SplitHostPort(updated.DNSAddress)
+		if err != nil {
+			return fmt.Errorf("invalid DNS bind address: %w", err)
 		}
+		updated.DNSAddress = net.JoinHostPort(host, options.dnsPort)
 	}
-	config.DNSAddress = net.JoinHostPort(config.LANAddress, dnsPort)
 	if options.httpPort != "" {
-		config.NASPort = options.httpPort
+		updated.NASPort = options.httpPort
 	}
 	if options.httpsPort != "" {
-		config.NASPortHTTPS = options.httpsPort
+		updated.NASPortHTTPS = options.httpsPort
 	}
-	for _, port := range []string{config.NASPort, config.NASPortHTTPS} {
+	for _, port := range []string{updated.NASPort, updated.NASPortHTTPS} {
 		number, err := strconv.Atoi(port)
 		if err != nil || number < 1 || number > 65535 {
 			return fmt.Errorf("invalid NAS port %q", port)
 		}
 	}
+	*config = updated
 	return nil
 }
 
@@ -242,6 +244,30 @@ func runServer(ctx context.Context, result bootstrap.Result, options options, st
 	if err != nil {
 		return err
 	}
+	// Save only the selected interface and bindings derived from the previous
+	// LAN address. Development port overrides remain local to this invocation.
+	previousLAN := result.Config.LANAddress
+	if _, err := common.RebindLANAddress(config.LANAddress); err != nil {
+		return err
+	}
+	if previousLAN != config.LANAddress {
+		fmt.Fprintf(stdout, "LAN address changed: %s -> %s (saved)\n", previousLAN, config.LANAddress)
+	}
+
+	// Preflight: check that every required port is free before attempting to
+	// bind (and before the macOS admin prompt appears).
+	needsAuthorization, err := preflightPorts(ctx, specs)
+	if err != nil {
+		return err
+	}
+
+	// Warn the user if administrator credentials will be needed.
+	if needsAuthorization && runtime.GOOS == "darwin" && os.Geteuid() != 0 {
+		fmt.Fprintln(stdout, "Some ports require administrator privileges:", privilegedPortSummary(specs))
+		fmt.Fprintln(stdout, "macOS will ask for your password to bind them.")
+		fmt.Fprintln(stdout, "(Run mkwfc as root or with sudo to skip the prompt.)")
+	}
+
 	runtimeDir := filepath.Join(common.DataPath(), "run")
 	if err := os.MkdirAll(runtimeDir, 0700); err != nil {
 		return fmt.Errorf("create runtime directory: %w", err)
@@ -250,6 +276,7 @@ func runServer(ctx context.Context, result bootstrap.Result, options options, st
 	if err != nil {
 		return err
 	}
+	defer sockets.CloseAll()
 	fmt.Fprintln(stdout, "Set your Wii DNS to", config.LANAddress)
 	fmt.Fprintln(stdout, "Dolphin: use the built-in BBA and set its DNS to this address.")
 	fmt.Fprintln(stdout, "Host Manager:", "http://"+config.AdminAddress+"/")
@@ -264,7 +291,7 @@ func runServer(ctx context.Context, result bootstrap.Result, options options, st
 func checkLANAddressLocal(lanAddress string) error {
 	addrs, err := net.InterfaceAddrs()
 	if err != nil {
-		return nil // can't enumerate; let the bind surface any problem
+		return fmt.Errorf("enumerate local interfaces before binding: %w", err)
 	}
 	var local []string
 	for _, a := range addrs {
@@ -298,6 +325,7 @@ func commandContext() context.Context {
 
 func printUsage(writer io.Writer) {
 	fmt.Fprintln(writer, "Usage: mkwfc <init|run|doctor|repair-certs> [--data-dir DIR] [--lan-ip IPv4]")
+	fmt.Fprintln(writer, "run detects the current LAN interface and saves derived bindings; --lan-ip selects an explicit interface.")
 	fmt.Fprintln(writer, "Development overrides: --dns-port PORT --http-port PORT --https-port PORT")
 	fmt.Fprintln(writer, "init may import pre-made certificates: --cert PEM --key PEM --wii-cert DER --wii-key PKCS8-PEM")
 	fmt.Fprintln(writer, "repair-certs backs up and replaces only an incompatible Wii certificate, preserving its key.")

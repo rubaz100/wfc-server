@@ -44,3 +44,20 @@ the working tree when this fork branch was created and are carried along unchang
   Caveat: the osascript GUI-escalation path has not been exercised end-to-end with a real
   console (it needs interactive admin authorization); the mechanism is covered by
   `TestDescriptorPassingAndHighPortDirectBind`, which drives `runHelper` directly.
+
+## Combined release integration (2026-10-31)
+
+Regular builds embed version 0.3.2 and advertise race protocol 2 only when the
+matching manifest/assets are present. PAL CPU/auto-fill and Knockout share a
+negotiated roster and authoritative owner event stream. Gameplay remains off
+by default and experimental; CPU items/Battle/other regions are unfinished.
+
+Startup detects and persists LAN-derived bindings while retaining custom binds,
+ports, certificates and signing keys. XML server settings remain durable; shared
+Host Manager last-tab/refresh preferences and the existing password hash live
+in SQLite. The pending password-auth and Aero panel work is included in this
+release alongside port preflight and macOS rebind fixes.
+
+This integration was compiled only. No automated, smoke, browser or Dolphin
+checks were run, as requested by the user. Historical test expectations require
+revision before automated validation resumes.

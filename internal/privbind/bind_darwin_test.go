@@ -4,12 +4,17 @@ package privbind
 
 import (
 	"bytes"
+	"errors"
+	"io"
 	"net"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
+
+	"golang.org/x/sys/unix"
 )
 
 func testRequest(specs ...Spec) Request {
@@ -130,6 +135,82 @@ func TestCloseAllReleasesHelperSocketPromptly(t *testing.T) {
 		t.Fatalf("port %s still held after CloseAll: %v", address, err)
 	}
 	_ = rebind.Close()
+}
+
+func TestRawTCPRebindAfterServerClosesConnection(t *testing.T) {
+	spec := Spec{Name: "tcp-test", Network: "tcp", Address: "127.0.0.1:0"}
+	file, err := bindRaw(spec)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer file.Close()
+	listener, err := net.FileListener(file)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer listener.Close()
+	address := listener.Addr().String()
+	client, err := net.DialTimeout("tcp", address, time.Second)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer client.Close()
+	if err := listener.(*net.TCPListener).SetDeadline(time.Now().Add(time.Second)); err != nil {
+		t.Fatal(err)
+	}
+	accepted, err := listener.Accept()
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer accepted.Close()
+	// Closing the server endpoint first leaves its local port in TCP teardown
+	// state after both peers close. An unused listener alone does not reproduce
+	// this restart failure.
+	if err := accepted.Close(); err != nil {
+		t.Fatal(err)
+	}
+	if err := client.SetReadDeadline(time.Now().Add(time.Second)); err != nil {
+		t.Fatal(err)
+	}
+	var buffer [1]byte
+	if _, err := client.Read(buffer[:]); err != io.EOF {
+		t.Fatalf("client did not observe server close: %v", err)
+	}
+	_ = client.Close()
+	_ = listener.Close()
+	_ = file.Close()
+	spec.Address = address
+	replacement, err := bindRaw(spec)
+	if err != nil {
+		t.Fatalf("helper cannot immediately rebind after closing a client: %v", err)
+	}
+	_ = replacement.Close()
+}
+
+func TestRawBindKeepsActiveSocketsExclusive(t *testing.T) {
+	for _, network := range []string{"tcp", "udp"} {
+		t.Run(network, func(t *testing.T) {
+			spec := Spec{Name: "exclusive-test", Network: network, Address: "127.0.0.1:0"}
+			file, err := bindRaw(spec)
+			if err != nil {
+				t.Fatal(err)
+			}
+			defer file.Close()
+			address, err := unix.Getsockname(int(file.Fd()))
+			if err != nil {
+				t.Fatal(err)
+			}
+			port := address.(*unix.SockaddrInet4).Port
+			spec.Address = net.JoinHostPort("127.0.0.1", strconv.Itoa(port))
+			duplicate, err := bindRaw(spec)
+			if duplicate != nil {
+				_ = duplicate.Close()
+			}
+			if !errors.Is(err, unix.EADDRINUSE) {
+				t.Fatalf("active %s socket was not exclusive: %v", network, err)
+			}
+		})
+	}
 }
 
 func TestHelperPartialFailureClosesSockets(t *testing.T) {

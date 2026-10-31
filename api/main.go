@@ -1,28 +1,31 @@
 package api
 
 import (
+	"fmt"
 	"net/http"
 	"wwfc/common"
 	"wwfc/database"
+	"wwfc/logging"
 )
 
-var (
-	db database.Connection
-
-	apiSecret string
-)
+var db database.Connection
 
 func StartServer(reload bool) {
 	// Get config
 	config := common.GetConfig()
 
-	apiSecret = config.APISecret
-
 	// Start SQL
 	db = database.Start(config)
 
-	// Cache whether an admin password exists (drives the bootstrap fallback).
-	loadAdminState()
+	if err := loadAdminState(); err != nil {
+		db.Close()
+		panic(fmt.Errorf("initialize admin authentication: %w", err))
+	}
+	if err := db.EnsureHostManagerPreferences(); err != nil {
+		// Display preferences are optional; do not interrupt console service
+		// or replace existing values when the preference store is unavailable.
+		logging.Error("API:admin", "Initialize panel preferences:", err)
+	}
 
 	db.RegisterEvents(config, []string{
 		"profile_kicked",
@@ -54,9 +57,9 @@ func RegisterExtendedHandlers(mux *http.ServeMux) {
 	mux.HandleFunc("/api/bans", HandleBans)
 	mux.HandleFunc("/api/motd", HandleMOTD)
 	mux.HandleFunc("/api/config", HandleConfig)
+	mux.HandleFunc("/api/preferences", HandlePreferences)
 	mux.HandleFunc("/api/profile", HandleProfile)
 	mux.HandleFunc("/api/auth/status", HandleAuthStatus)
-	mux.HandleFunc("/api/setup", HandleSetup)
 	mux.HandleFunc("/api/login", HandleLogin)
 	mux.HandleFunc("/api/logout", HandleLogout)
 	mux.HandleFunc("/api/password", HandleChangePassword)

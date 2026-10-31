@@ -19,6 +19,10 @@ var editableConfigTags = map[string]bool{
 	"enableHttpsExploitWii":       true,
 	"enableHttpsExploitDS":        true,
 	"logLevel":                    true,
+	"onlineCPUEnabled":            true,
+	"onlineCPUAutoFill":           true,
+	"onlineCPUCount":              true,
+	"knockoutEnabled":             true,
 }
 
 var xmlTextEscaper = strings.NewReplacer("&", "&amp;", "<", "&lt;", ">", "&gt;")
@@ -44,7 +48,7 @@ func ApplyConfigChanges(fields map[string]string) error {
 		switch tag {
 		case "serverName":
 			updated.ServerName = val
-		case "allowDefaultDolphinKeys", "allowConnectWithoutDeviceID", "enableHttpsExploitWii", "enableHttpsExploitDS":
+		case "allowDefaultDolphinKeys", "allowConnectWithoutDeviceID", "enableHttpsExploitWii", "enableHttpsExploitDS", "onlineCPUEnabled", "onlineCPUAutoFill", "knockoutEnabled":
 			if val != "true" && val != "false" {
 				return fmt.Errorf("invalid %s: %q", tag, val)
 			}
@@ -58,7 +62,19 @@ func ApplyConfigChanges(fields map[string]string) error {
 				updated.EnableHTTPSExploitWii = &b
 			case "enableHttpsExploitDS":
 				updated.EnableHTTPSExploitDS = &b
+			case "onlineCPUEnabled":
+				updated.OnlineCPUEnabled = b
+			case "onlineCPUAutoFill":
+				updated.OnlineCPUAutoFill = b
+			case "knockoutEnabled":
+				updated.KnockoutEnabled = b
 			}
+		case "onlineCPUCount":
+			n, err := strconv.Atoi(val)
+			if err != nil || n < 1 || n > 11 {
+				return fmt.Errorf("invalid onlineCPUCount: %q", val)
+			}
+			updated.OnlineCPUCount = n
 		case "allowMultipleDeviceIDs":
 			switch val {
 			case "never", "always", "SameIPAddress":

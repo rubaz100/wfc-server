@@ -2,12 +2,16 @@
 
 /* ---------- State & helpers ---------- */
 const SECRET_KEY = "wfc_admin_secret";
+const PANEL_VIEWS = new Set(["dashboard", "rooms", "players", "bans", "settings"]);
+const REFRESH_INTERVALS = new Set([0, 3, 5, 10, 30, 60]);
 const state = {
 	secret: localStorage.getItem(SECRET_KEY) || "", // holds a session token once logged in
 	view: "dashboard",
 	config: null,
+	preferences: { lastView: "dashboard", refreshSeconds: 3 },
+	preferencesLoaded: false,
+	preferenceSave: Promise.resolve(),
 	timer: null,
-	gateMode: "login",
 };
 
 const $ = (sel, root = document) => root.querySelector(sel);
@@ -101,7 +105,7 @@ function toast(msg, kind = "") {
 function onError(e) {
 	if (e && e.auth) {
 		stopPolling();
-		showGate("Secret rejected. Try again.");
+		showGate("Session expired. Please sign in again.");
 		return;
 	}
 	toast((e && e.message) || "Request failed", "bad");
@@ -113,53 +117,53 @@ function showGate(err = "") {
 	$("#gate").classList.remove("hidden");
 	$("#gate-error").textContent = err;
 	$("#gate-secret").value = "";
-	$("#gate-newpass").value = "";
 	$("#gate-secret").focus();
 }
 function showApp() {
 	$("#gate").classList.add("hidden");
 	$("#app").classList.remove("hidden");
 }
-// The gate has two modes: "login" (enter admin password) and "setup" (first
-// run — enter the config.xml apiSecret to authorize, then choose a password).
-function setGateMode(mode) {
-	state.gateMode = mode;
-	const setup = mode === "setup";
-	$("#gate-desc").textContent = setup
-		? "First-time setup: enter the apiSecret from config.xml to authorize, then choose an admin password."
-		: "Enter your admin password.";
-	$("#gate-secret").placeholder = setup ? "apiSecret (from config.xml)" : "Admin password";
-	$("#gate-newpass").classList.toggle("hidden", !setup);
-	$("#gate-submit").textContent = setup ? "Set password" : "Unlock";
-}
 async function enterApp() {
 	state.config = await apiGet("/api/config");
+	state.preferencesLoaded = false;
+	try {
+		const preferences = await apiGet("/api/preferences");
+		if (!preferences || !PANEL_VIEWS.has(preferences.lastView) || !REFRESH_INTERVALS.has(preferences.refreshSeconds)) {
+			throw new Error("Invalid panel preferences");
+		}
+		state.preferences = preferences;
+		state.preferencesLoaded = true;
+	} catch (err) {
+		if (err.auth) throw err;
+		// Keep a valid login usable when optional display preferences fail.
+		// Do not save defaults over a store that could not be read.
+	}
 	showApp();
-	setView(state.view);
+	setView(state.preferencesLoaded ? state.preferences.lastView : "dashboard", false);
 	startPolling();
+	if (!state.preferencesLoaded) toast("Panel preferences could not be loaded. Server controls are still available.", "bad");
+}
+function savePanelPreferences(changes) {
+	const token = state.secret;
+	state.preferenceSave = state.preferenceSave.catch(() => {}).then(() => {
+		if (!state.preferencesLoaded || !token || state.secret !== token) return;
+		return apiPost("/api/preferences", changes);
+	});
+	return state.preferenceSave;
 }
 $("#gate-form").addEventListener("submit", async (e) => {
 	e.preventDefault();
-	const field = $("#gate-secret").value.trim();
+	const field = $("#gate-secret").value;
 	if (!field) return;
 	try {
-		let resp;
-		if (state.gateMode === "setup") {
-			const pw = $("#gate-newpass").value;
-			if (pw.length < 8) { $("#gate-error").textContent = "Password must be at least 8 characters."; return; }
-			resp = await apiPost("/api/setup", { secret: field, password: pw });
-		} else {
-			resp = await apiPost("/api/login", { password: field });
-		}
+		const resp = await apiPost("/api/login", { password: field });
 		state.secret = resp.token;
 		if ($("#gate-remember").checked) localStorage.setItem(SECRET_KEY, state.secret);
 		else localStorage.removeItem(SECRET_KEY);
 		await enterApp();
 	} catch (err) {
 		state.secret = "";
-		if (err.data && err.data.error === "setup_required") { setGateMode("login"); $("#gate-error").textContent = "Enter your admin password."; return; }
-		if (err.data && err.data.error === "setup_already_done") { setGateMode("login"); $("#gate-error").textContent = "A password is already set — log in."; return; }
-		$("#gate-error").textContent = err.auth ? (state.gateMode === "setup" ? "Wrong apiSecret." : "Wrong password.") : "Could not reach server.";
+		$("#gate-error").textContent = err.auth ? "Wrong password." : "Could not reach server.";
 	}
 });
 $("#btn-logout").addEventListener("click", async () => {
@@ -167,7 +171,6 @@ $("#btn-logout").addEventListener("click", async () => {
 	localStorage.removeItem(SECRET_KEY);
 	state.secret = "";
 	stopPolling();
-	setGateMode("login");
 	showGate("Locked.");
 });
 
@@ -177,11 +180,21 @@ $("#tabs").addEventListener("click", (e) => {
 	if (!btn) return;
 	setView(btn.dataset.view);
 });
-function setView(view) {
+function setView(view, persist = true) {
+	if (!PANEL_VIEWS.has(view)) return;
 	state.view = view;
-	for (const t of document.querySelectorAll(".tab"))
-		t.classList.toggle("active", t.dataset.view === view);
+	if (persist && state.preferencesLoaded) {
+		state.preferences.lastView = view;
+		savePanelPreferences({ lastView: view }).catch(onError);
+	}
+	for (const t of document.querySelectorAll(".tab")) {
+		const active = t.dataset.view === view;
+		t.classList.toggle("active", active);
+		if (active) t.setAttribute("aria-current", "page");
+		else t.removeAttribute("aria-current");
+	}
 	render();
+	if (state.preferences.refreshSeconds === 0) refreshStats();
 }
 
 /* ---------- Polling ---------- */
@@ -189,10 +202,11 @@ const POLLED = new Set(["dashboard", "rooms", "players"]);
 function startPolling() {
 	stopPolling();
 	refreshStats();
+	if (state.preferences.refreshSeconds === 0) return;
 	state.timer = setInterval(() => {
 		refreshStats();
 		if (POLLED.has(state.view)) render();
-	}, 3000);
+	}, state.preferences.refreshSeconds * 1000);
 }
 function stopPolling() {
 	if (state.timer) clearInterval(state.timer);
@@ -209,7 +223,7 @@ async function refreshStats() {
 	} catch (e) {
 		$("#conn-dot").className = "pill-dot err";
 		$("#conn-text").textContent = "offline";
-		if (e.auth) { stopPolling(); showGate("Secret rejected."); }
+		if (e.auth) { stopPolling(); showGate("Session expired. Please sign in again."); }
 	}
 }
 
@@ -235,10 +249,14 @@ async function renderDashboard() {
 
 		if (state.view !== "dashboard") return; // a newer view won the race
 		$("#content").innerHTML = `
+			<div class="page-heading">
+				<span class="heading-orb"><svg class="icon" aria-hidden="true"><use href="#icon-dashboard"/></svg></span>
+				<div><h1>Server overview</h1><p>Players, rooms, and your local WFC server.</p></div>
+			</div>
 			<div class="grid">
-				<div class="card stat-card"><div class="stat-num accent">${g.online || 0}</div><div class="stat-label">Players online</div></div>
-				<div class="card stat-card"><div class="stat-num blue">${g.active || 0}</div><div class="stat-label">In a race / match</div></div>
-				<div class="card stat-card"><div class="stat-num">${g.groups || 0}</div><div class="stat-label">Active rooms</div></div>
+				<div class="card stat-card"><div><div class="stat-num accent">${g.online || 0}</div><div class="stat-label">Players online</div></div><span class="stat-orb green"><svg class="icon" aria-hidden="true"><use href="#icon-players"/></svg></span></div>
+				<div class="card stat-card"><div><div class="stat-num blue">${g.active || 0}</div><div class="stat-label">In a race / match</div></div><span class="stat-orb"><svg class="icon" aria-hidden="true"><use href="#icon-race"/></svg></span></div>
+				<div class="card stat-card"><div><div class="stat-num">${g.groups || 0}</div><div class="stat-label">Active rooms</div></div><span class="stat-orb"><svg class="icon" aria-hidden="true"><use href="#icon-rooms"/></svg></span></div>
 			</div>
 			${games.length ? `<div class="section-title">By game</div><div class="grid">${games.map(([name, s]) =>
 				`<div class="card"><b>${esc(name)}</b><div class="info-row"><span class="k">Online</span><span class="v">${s.online}</span></div><div class="info-row"><span class="k">Rooms</span><span class="v">${s.groups}</span></div></div>`
@@ -373,9 +391,23 @@ async function renderSettings() {
 		const [cfg, motd] = await Promise.all([apiGet("/api/config"), apiGet("/api/motd")]);
 		state.config = cfg;
 		const sel = (v, opt) => (v === opt ? "selected" : "");
+		const cpuAvailable = cfg.onlineCPUAvailable === true;
+		const knockoutAvailable = cfg.knockoutAvailable === true;
 		if (state.view !== "settings") return;
 		$("#content").innerHTML = `
 			<h2 style="margin:0 0 16px">Settings</h2>
+
+			<div class="section-title">Panel preferences</div>
+			<div class="card"><form class="stack" id="preferences-form">
+				<div class="field">
+					<label for="pf-refresh">Automatic refresh</label>
+					<select id="pf-refresh" ${state.preferencesLoaded ? "" : "disabled"}>
+						${[0, 3, 5, 10, 30, 60].map((n) => `<option value="${n}" ${sel(state.preferences.refreshSeconds, n)}>${n === 0 ? "Manual only" : `Every ${n} seconds`}</option>`).join("")}
+					</select>
+					<span class="hint">The refresh interval and your last opened tab are saved in SQLite and shared across Host Manager browsers. In manual mode, open a tab to refresh it. ${state.preferencesLoaded ? "" : "Preferences are unavailable; reload the page to try again."}</span>
+				</div>
+				<div class="form-actions"><button class="btn btn-primary" type="submit" ${state.preferencesLoaded ? "" : "disabled"}>Save panel preferences</button></div>
+			</form></div>
 
 			<div class="section-title">Message of the day</div>
 			<div class="card"><form class="stack" id="motd-form">
@@ -420,6 +452,22 @@ async function renderSettings() {
 					</select>
 					<span class="hint">Applies live.</span>
 				</div>
+				<fieldset class="cpu-settings">
+					<legend>Knockout <span class="tag ${knockoutAvailable ? "warn" : ""}">${knockoutAvailable ? "Experimental" : "Unavailable"}</span></legend>
+					<div class="field switch"><input type="checkbox" id="cf-knockout" ${cfg.knockoutEnabled ? "checked" : ""} ${knockoutAvailable ? "" : "disabled"} aria-describedby="cf-knockout-help"><label for="cf-knockout" style="margin:0">Knockout mode</label></div>
+					<span class="hint" id="cf-knockout-help">Applies to the next agreed public or private VS race, including CPU racers. Requires compatible PAL disc payloads and one local human per console. Other rooms use normal VS. Multiplayer validation is pending.</span>
+				</fieldset>
+				<fieldset class="cpu-settings">
+					<legend>Online CPUs <span class="tag ${cpuAvailable ? "warn" : ""}">${cpuAvailable ? "Experimental" : "In development"}</span></legend>
+					<div class="field switch"><input type="checkbox" id="cf-online-cpu" ${cfg.onlineCPUEnabled ? "checked" : ""} ${cpuAvailable ? "" : "disabled"} aria-describedby="cf-online-cpu-help"><label for="cf-online-cpu" style="margin:0">Enable CPU racers when available</label></div>
+					<div class="field switch"><input type="checkbox" id="cf-online-cpu-auto-fill" ${cfg.onlineCPUAutoFill ? "checked" : ""} ${cpuAvailable && cfg.onlineCPUEnabled ? "" : "disabled"} aria-describedby="cf-online-cpu-fill-help"><label for="cf-online-cpu-auto-fill" style="margin:0">Auto-fill empty slots to 12 racers</label></div>
+					<span class="hint" id="cf-online-cpu-fill-help">Real players take priority. For example, 4 real players + 8 CPUs becomes 5 real players + 7 CPUs next race when someone joins. CPUs are added or removed between races; a player cannot take over a CPU mid-race.</span>
+					<div class="field">
+						<label for="cf-online-cpu-count">CPUs to add when auto-fill is off</label>
+						<input type="number" id="cf-online-cpu-count" min="1" max="11" step="1" value="${esc(cfg.onlineCPUCount ?? 4)}" ${cpuAvailable && cfg.onlineCPUEnabled && !cfg.onlineCPUAutoFill ? "" : "disabled"} required aria-describedby="cf-online-cpu-help">
+					</div>
+					<span class="hint" id="cf-online-cpu-help">${cpuAvailable ? "Experimental PAL online VS support for public matchmaking and private rooms. Adds CPUs up to 12 total racers from the next race. All players need the current compatible PAL disc payload. CPU items and Battle are not supported yet; multiplayer validation is pending." : "CPU support for public matchmaking and private rooms is in development for this server build. Your preference and count are saved for a compatible build; CPUs are currently unavailable."}</span>
+				</fieldset>
 				<div class="form-actions"><button class="btn btn-primary" type="submit">Save settings</button></div>
 			</form></div>
 
@@ -436,6 +484,18 @@ async function renderSettings() {
 				${infoRow("Database (SQLite)", cfg.databasePath)}
 			</div></div>`;
 
+		$("#preferences-form").addEventListener("submit", async (e) => {
+			e.preventDefault();
+			if (!state.preferencesLoaded) return;
+			const refreshSeconds = Number($("#pf-refresh").value);
+			if (!REFRESH_INTERVALS.has(refreshSeconds)) return;
+			try {
+				await savePanelPreferences({ refreshSeconds });
+				state.preferences.refreshSeconds = refreshSeconds;
+				startPolling();
+				toast("Panel preferences saved", "good");
+			} catch (err) { onError(err); }
+		});
 		$("#motd-form").addEventListener("submit", async (e) => {
 			e.preventDefault();
 			try { await apiPost("/api/motd", { text: $("#motd-text").value }); toast("MOTD saved", "good"); }
@@ -454,8 +514,21 @@ async function renderSettings() {
 				onError(err);
 			}
 		});
+		const syncCPUControls = () => {
+			const enabled = cpuAvailable && $("#cf-online-cpu").checked;
+			$("#cf-online-cpu-auto-fill").disabled = !enabled;
+			$("#cf-online-cpu-count").disabled = !enabled || $("#cf-online-cpu-auto-fill").checked;
+		};
+		$("#cf-online-cpu").addEventListener("change", syncCPUControls);
+		$("#cf-online-cpu-auto-fill").addEventListener("change", syncCPUControls);
 		$("#config-form").addEventListener("submit", async (e) => {
 			e.preventDefault();
+			const onlineCPUAutoFill = $("#cf-online-cpu-auto-fill").checked;
+			const onlineCPUCount = Number($("#cf-online-cpu-count").value);
+			if (!onlineCPUAutoFill && (!Number.isInteger(onlineCPUCount) || onlineCPUCount < 1 || onlineCPUCount > 11)) {
+				toast("CPU count must be a whole number from 1 to 11", "bad");
+				return;
+			}
 			try {
 				await apiPost("/api/config", {
 					serverName: $("#cf-name").value,
@@ -465,6 +538,10 @@ async function renderSettings() {
 					enableHttpsExploitWii: $("#cf-expwii").checked,
 					enableHttpsExploitDS: $("#cf-expds").checked,
 					logLevel: parseInt($("#cf-log").value, 10),
+					onlineCPUEnabled: $("#cf-online-cpu").checked,
+					onlineCPUAutoFill,
+					knockoutEnabled: $("#cf-knockout").checked,
+					...(onlineCPUAutoFill ? {} : { onlineCPUCount }),
 				});
 				toast("Settings saved to config.xml", "good");
 				$("#server-name").textContent = $("#cf-name").value || "mkwfc";
@@ -637,12 +714,11 @@ function banModal(pid, name, ng) {
 
 /* ---------- Boot ---------- */
 (async function boot() {
-	let status;
-	try { status = await apiGet("/api/auth/status"); }
-	catch { status = { password_set: true }; }
-	setGateMode(status.password_set ? "login" : "setup");
-	if (status.password_set && state.secret) {
-		try { await enterApp(); return; } // stored token still valid
+	$("#gate-desc").textContent = "Enter your admin password.";
+	$("#gate-secret").placeholder = "Admin password";
+	$("#gate-submit").textContent = "Unlock";
+	if (state.secret) {
+		try { await enterApp(); return; }
 		catch { state.secret = ""; }
 	}
 	showGate();

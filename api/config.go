@@ -27,6 +27,13 @@ type ConfigResponseSpec struct {
 	DatabaseName                string `json:"databaseName"`
 	DatabaseAddress             string `json:"databaseAddress"`
 	PayloadServerAddress        string `json:"payloadServerAddress"`
+	OnlineCPUEnabled            bool   `json:"onlineCPUEnabled"`
+	OnlineCPUAutoFill           bool   `json:"onlineCPUAutoFill"`
+	OnlineCPUCount              int    `json:"onlineCPUCount"`
+	OnlineCPUAvailable          bool   `json:"onlineCPUAvailable"`
+	OnlineCPUScope              string `json:"onlineCPUScope"`
+	KnockoutEnabled             bool   `json:"knockoutEnabled"`
+	KnockoutAvailable           bool   `json:"knockoutAvailable"`
 }
 
 type ConfigUpdateSpec struct {
@@ -38,10 +45,14 @@ type ConfigUpdateSpec struct {
 	EnableHTTPSExploitWii       *bool   `json:"enableHttpsExploitWii"`
 	EnableHTTPSExploitDS        *bool   `json:"enableHttpsExploitDS"`
 	LogLevel                    *int    `json:"logLevel"`
+	OnlineCPUEnabled            *bool   `json:"onlineCPUEnabled"`
+	OnlineCPUAutoFill           *bool   `json:"onlineCPUAutoFill"`
+	OnlineCPUCount              *int    `json:"onlineCPUCount"`
+	KnockoutEnabled             *bool   `json:"knockoutEnabled"`
 }
 
 // HandleConfig reads (GET) a redacted view of the server config or writes (POST)
-// the editable subset, persisting to config.xml. Requires the secret.
+// the editable subset, persisting to config.xml. Requires an admin session.
 func HandleConfig(w http.ResponseWriter, r *http.Request) {
 	if r.Method == http.MethodPost {
 		handleSetConfig(w, r)
@@ -75,6 +86,13 @@ func handleGetConfig(w http.ResponseWriter, r *http.Request) {
 		DatabaseName:                c.DatabaseName,
 		DatabaseAddress:             c.DatabaseAddress,
 		PayloadServerAddress:        c.PayloadServerAddress,
+		OnlineCPUEnabled:            c.OnlineCPUEnabled,
+		OnlineCPUAutoFill:           c.OnlineCPUAutoFill,
+		OnlineCPUCount:              c.OnlineCPUCount,
+		OnlineCPUAvailable:          gpcm.OnlineCPUAvailable(),
+		OnlineCPUScope:              "all",
+		KnockoutEnabled:             c.KnockoutEnabled,
+		KnockoutAvailable:           gpcm.OnlineCPUAvailable(),
 	})
 }
 
@@ -120,6 +138,22 @@ func handleSetConfig(w http.ResponseWriter, r *http.Request) {
 		}
 		fields["logLevel"] = strconv.Itoa(*req.LogLevel)
 	}
+	if req.OnlineCPUEnabled != nil {
+		fields["onlineCPUEnabled"] = boolStr(*req.OnlineCPUEnabled)
+	}
+	if req.OnlineCPUAutoFill != nil {
+		fields["onlineCPUAutoFill"] = boolStr(*req.OnlineCPUAutoFill)
+	}
+	if req.KnockoutEnabled != nil {
+		fields["knockoutEnabled"] = boolStr(*req.KnockoutEnabled)
+	}
+	if req.OnlineCPUCount != nil {
+		if *req.OnlineCPUCount < 1 || *req.OnlineCPUCount > 11 {
+			replyError(w, http.StatusBadRequest, APIErrorInvalidQuery)
+			return
+		}
+		fields["onlineCPUCount"] = strconv.Itoa(*req.OnlineCPUCount)
+	}
 
 	if len(fields) == 0 {
 		replyError(w, http.StatusBadRequest, APIErrorInvalidQuery)
@@ -135,6 +169,9 @@ func handleSetConfig(w http.ResponseWriter, r *http.Request) {
 	// Apply runtime side-effects not picked up automatically from cached config.
 	if req.AllowDefaultDolphinKeys != nil {
 		gpcm.SetAllowDefaultDolphinKeys(*req.AllowDefaultDolphinKeys)
+	}
+	if req.OnlineCPUEnabled != nil || req.OnlineCPUCount != nil || req.OnlineCPUAutoFill != nil || req.KnockoutEnabled != nil {
+		gpcm.BroadcastOnlineCPUSettings()
 	}
 
 	replyOK(w, nil)

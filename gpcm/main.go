@@ -52,6 +52,7 @@ type GameSpySession struct {
 	ReservationPID uint32
 
 	NeedsExploit bool
+	CPUVersion   uint32
 
 	ReadBuffer  []byte
 	WriteBuffer string
@@ -70,6 +71,7 @@ var (
 
 func StartServer(reload bool) {
 	qr2.SetGPErrorCallback(KickPlayer)
+	startOnlineCPURelay()
 
 	// Get config
 	config := common.GetConfig()
@@ -103,6 +105,7 @@ func StartServer(reload bool) {
 }
 
 func Shutdown() {
+	stopOnlineCPURelay()
 	err := saveState()
 	if err != nil {
 		logging.Error("GPCM", "Failed to save state:", err)
@@ -126,6 +129,7 @@ func CloseConnection(index uint64) {
 	logging.Notice(session.ModuleName, "Connection closed")
 
 	if session.LoggedIn {
+		disconnectOnlineCPU(session.User.ProfileId)
 		qr2.Logout(session.User.ProfileId)
 		if session.QR2IP != 0 {
 			qr2.ProcessGPStatusUpdate(session.User.ProfileId, session.QR2IP, "0")

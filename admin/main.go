@@ -73,7 +73,7 @@ func StartServerWithListener(reload bool, listener net.Listener) error {
 		for _, u := range urls {
 			logging.Notice("ADMIN", "    ", aurora.BrightCyan(u))
 		}
-		logging.Notice("ADMIN", "Sign in with the apiSecret from config.xml")
+		logging.Notice("ADMIN", "Sign in with your admin password")
 		if err := server.Serve(listener); err != nil && err != http.ErrServerClosed {
 			logging.Error("ADMIN", "HTTP server error:", err)
 		}

@@ -3,22 +3,36 @@
 <head>
 	<meta charset="UTF-8">
 	<meta name="viewport" content="width=device-width, initial-scale=1.0">
+	<meta name="theme-color" content="#65bde5">
 	<title>mkwfc Host Manager</title>
 	<link rel="stylesheet" href="style.css">
-	<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'><text y='14' font-size='14'>🏁</text></svg>">
+	<link rel="icon" type="image/svg+xml" href="images/aero-mark.svg">
 </head>
 <body>
-	<!-- Secret gate -->
+	<svg class="icon-library" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+		<symbol id="icon-dashboard" viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></symbol>
+		<symbol id="icon-rooms" viewBox="0 0 24 24"><path d="M3 9a14 14 0 0 1 18 0M6 13a9 9 0 0 1 12 0m-9 4a4 4 0 0 1 6 0"/><circle cx="12" cy="21" r=".8"/></symbol>
+		<symbol id="icon-players" viewBox="0 0 24 24"><circle cx="9" cy="8" r="3.5"/><path d="M2 21v-2a7 7 0 0 1 14 0v2M17 5a3.5 3.5 0 0 1 0 7m2 3a6 6 0 0 1 3 5"/></symbol>
+		<symbol id="icon-bans" viewBox="0 0 24 24"><path d="m12 2 9 4v6c0 5-9 10-9 10S3 17 3 12V6zM8 8l8 8m0-8-8 8"/></symbol>
+		<symbol id="icon-settings" viewBox="0 0 24 24"><path d="m10 2-.6 3-2.1 1.2-2.9-.9-2 3.4 2.3 2.1v2.4l-2.3 2.1 2 3.4 2.9-.9L9.4 19l.6 3h4l.6-3 2.1-1.2 2.9.9 2-3.4-2.3-2.1v-2.4l2.3-2.1-2-3.4-2.9.9L14.6 5 14 2z"/><circle cx="12" cy="12" r="3.5"/></symbol>
+		<symbol id="icon-race" viewBox="0 0 24 24"><path d="M4 22V3m0 0c5-4 11 4 16 0v12c-5 4-11-4-16 0"/><path d="M8 3v5m6-3v5m6-2-6 2-6-2-4 1m4 4v-5m6 7v-5"/></symbol>
+		<symbol id="icon-lock" viewBox="0 0 24 24"><rect x="5" y="10" width="14" height="11" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3m-4 5v2"/></symbol>
+	</svg>
+	<div class="aero-atmosphere" aria-hidden="true"><span></span><span></span><span></span><span></span></div>
+
+	<!-- Password gate -->
 	<div id="gate" class="gate hidden">
 		<form class="gate-card" id="gate-form">
-			<div class="gate-logo">🏁</div>
+			<img class="gate-logo" src="images/aero-mark.svg" alt="" width="96" height="96">
+			<span class="gate-eyebrow">Nintendo WFC · Local network</span>
 			<h1>mkwfc Host Manager</h1>
 			<p id="gate-desc">Enter your admin password.</p>
-			<input type="password" id="gate-secret" placeholder="Admin password" autocomplete="current-password">
-			<input type="password" id="gate-newpass" class="hidden" placeholder="New admin password (min 8 chars)" autocomplete="new-password">
+			<label class="field-label" for="gate-secret">Admin password</label>
+			<input type="password" id="gate-secret" placeholder="Admin password" autocomplete="current-password" aria-describedby="gate-desc gate-error" required>
 			<label class="gate-remember"><input type="checkbox" id="gate-remember" checked> Remember on this device</label>
 			<button type="submit" class="btn btn-primary" id="gate-submit">Unlock</button>
-			<div class="gate-error" id="gate-error"></div>
+			<div class="gate-error" id="gate-error" role="alert"></div>
+			<div class="gate-footer">Mario Kart Wii, together again.</div>
 		</form>
 	</div>
 
@@ -27,7 +41,7 @@
 		<div class="appbar">
 		<header class="topbar">
 			<div class="brand">
-				<span class="brand-logo">🏁</span>
+				<img class="brand-logo" src="images/aero-mark.svg" alt="" width="56" height="56">
 				<div class="brand-text">
 					<strong id="server-name">mkwfc</strong>
 					<span class="brand-sub">Host Manager</span>
@@ -38,15 +52,15 @@
 				<div class="pill"><b id="stat-online">0</b> online</div>
 				<div class="pill"><b id="stat-rooms">0</b> rooms</div>
 			</div>
-			<button class="btn btn-ghost" id="btn-logout" title="Forget secret / lock">🔒</button>
+			<button class="btn btn-ghost" id="btn-logout" title="Log out / lock" aria-label="Log out and lock Host Manager"><svg class="icon" aria-hidden="true"><use href="#icon-lock"/></svg></button>
 		</header>
 
-		<nav class="tabs" id="tabs">
-			<button class="tab active" data-view="dashboard">Dashboard</button>
-			<button class="tab" data-view="rooms">Rooms</button>
-			<button class="tab" data-view="players">Players</button>
-			<button class="tab" data-view="bans">Bans</button>
-			<button class="tab" data-view="settings">Settings</button>
+		<nav class="tabs" id="tabs" aria-label="Host Manager sections">
+			<button class="tab active" data-view="dashboard" aria-current="page"><svg class="icon" aria-hidden="true"><use href="#icon-dashboard"/></svg>Dashboard</button>
+			<button class="tab" data-view="rooms"><svg class="icon" aria-hidden="true"><use href="#icon-rooms"/></svg>Rooms</button>
+			<button class="tab" data-view="players"><svg class="icon" aria-hidden="true"><use href="#icon-players"/></svg>Players</button>
+			<button class="tab" data-view="bans"><svg class="icon" aria-hidden="true"><use href="#icon-bans"/></svg>Bans</button>
+			<button class="tab" data-view="settings"><svg class="icon" aria-hidden="true"><use href="#icon-settings"/></svg>Settings</button>
 		</nav>
 		</div>
 
@@ -54,7 +68,7 @@
 	</div>
 
 	<div id="modal-root"></div>
-	<div id="toast-root" class="toast-root"></div>
+	<div id="toast-root" class="toast-root" role="status" aria-live="polite"></div>
 
 	<script src="app.js"></script>
 </body>

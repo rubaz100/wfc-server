@@ -2,6 +2,7 @@ package common
 
 import (
 	"encoding/xml"
+	"fmt"
 	"os"
 	"wwfc/logging"
 
@@ -63,6 +64,13 @@ type Config struct {
 
 	ServerName string `xml:"serverName,omitempty"`
 
+	// CPU policy for public and private rooms, frozen at the next selection.
+	// Auto-fill uses every vacant racer slot; Count is retained for fixed mode.
+	OnlineCPUEnabled  bool `xml:"onlineCPUEnabled"`
+	OnlineCPUAutoFill bool `xml:"onlineCPUAutoFill,omitempty"`
+	OnlineCPUCount    int  `xml:"onlineCPUCount,omitempty"`
+	KnockoutEnabled   bool `xml:"knockoutEnabled,omitempty"`
+
 	EventReporting EventReportingConfig `xml:"eventReporting"`
 }
 
@@ -72,6 +80,10 @@ type EventReportingConfig struct {
 }
 
 var (
+	// The regular release ships protocol 2 for PAL retail. Availability also
+	// checks the embedded bundle, so stale or incompatible assets stay disabled.
+	OnlineCPUProtocolVersion = "2"
+
 	config       Config
 	configLoaded bool
 	cmutex       = deadlock.Mutex{}
@@ -101,9 +113,13 @@ func LoadConfig() (Config, error) {
 		AllowMultipleDeviceIDs:  "never",
 		ServerName:              "mkwfc",
 		LocalDomain:             "mkwfc.lan",
+		OnlineCPUCount:          4,
 	}
 	if err := xml.Unmarshal(data, &loaded); err != nil {
 		return Config{}, err
+	}
+	if loaded.OnlineCPUCount < 1 || loaded.OnlineCPUCount > 11 {
+		return Config{}, fmt.Errorf("onlineCPUCount must be between 1 and 11")
 	}
 	if loaded.GameSpyAddress == nil {
 		loaded.GameSpyAddress = &loaded.DefaultAddress

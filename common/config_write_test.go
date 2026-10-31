@@ -102,6 +102,11 @@ func TestApplyConfigChangesRejectsInvalidValues(t *testing.T) {
 		{"allowMultipleDeviceIDs": "invalid"},
 		{"allowDefaultDolphinKeys": "yes"},
 		{"logLevel": "5"},
+		{"onlineCPUEnabled": "yes"},
+		{"onlineCPUCount": "0"},
+		{"onlineCPUCount": "-1"},
+		{"onlineCPUCount": "12"},
+		{"onlineCPUCount": "4.5"},
 	} {
 		if err := ApplyConfigChanges(fields); err == nil {
 			t.Fatalf("ApplyConfigChanges(%v) accepted an invalid value", fields)
@@ -109,5 +114,37 @@ func TestApplyConfigChangesRejectsInvalidValues(t *testing.T) {
 	}
 	if config.AllowMultipleDeviceIDs != "always" {
 		t.Fatalf("invalid updates changed device policy to %q", config.AllowMultipleDeviceIDs)
+	}
+}
+
+func TestOnlineCPUSettingsPersistAcrossReload(t *testing.T) {
+	path := useTemporaryConfig(t, "<Config><serverName>LAN</serverName></Config>\n", 0600)
+	if loaded := GetConfig(); loaded.OnlineCPUEnabled || loaded.OnlineCPUCount != 4 {
+		t.Fatalf("CPU defaults = enabled:%v count:%d", loaded.OnlineCPUEnabled, loaded.OnlineCPUCount)
+	}
+	if err := ApplyConfigChanges(map[string]string{"onlineCPUEnabled": "true", "onlineCPUCount": "7"}); err != nil {
+		t.Fatal(err)
+	}
+	configLoaded = false
+	loaded := GetConfig()
+	if !loaded.OnlineCPUEnabled || loaded.OnlineCPUCount != 7 {
+		t.Fatalf("enabled CPU settings did not survive reload: enabled:%v count:%d", loaded.OnlineCPUEnabled, loaded.OnlineCPUCount)
+	}
+	if err := ApplyConfigChanges(map[string]string{"onlineCPUEnabled": "false"}); err != nil {
+		t.Fatal(err)
+	}
+	configLoaded = false
+	loaded = GetConfig()
+	if loaded.OnlineCPUEnabled || loaded.OnlineCPUCount != 7 {
+		t.Fatalf("disabling CPUs lost the saved count: enabled:%v count:%d", loaded.OnlineCPUEnabled, loaded.OnlineCPUCount)
+	}
+	contents, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, field := range []string{"<onlineCPUEnabled>false</onlineCPUEnabled>", "<onlineCPUCount>7</onlineCPUCount>", "<serverName>LAN</serverName>"} {
+		if !strings.Contains(string(contents), field) {
+			t.Fatalf("persisted config is missing %s", field)
+		}
 	}
 }

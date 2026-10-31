@@ -355,6 +355,13 @@ func bindRaw(spec Spec) (*os.File, error) {
 			_ = unix.Close(descriptor)
 		}
 	}()
+	if spec.Network == "tcp" {
+		// Match net.Listen so a helper restart can bind while old accepted
+		// connections finish TCP teardown. Do not enable UDP port sharing.
+		if err := unix.SetsockoptInt(descriptor, unix.SOL_SOCKET, unix.SO_REUSEADDR, 1); err != nil {
+			return nil, fmt.Errorf("configure %s %s: %w", spec.Network, spec.Address, err)
+		}
+	}
 	address := &unix.SockaddrInet4{Port: port}
 	copy(address.Addr[:], ip)
 	if err := unix.Bind(descriptor, address); err != nil {

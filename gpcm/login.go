@@ -428,6 +428,7 @@ func (g *GameSpySession) login(command common.GameSpyCommand) {
 			"ip_address":   g.RemoteAddr,
 		},
 	)
+	g.acceptOnlineCPUCapability(command)
 }
 
 func (g *GameSpySession) exLogin(command common.GameSpyCommand) {
@@ -447,6 +448,7 @@ func (g *GameSpySession) exLogin(command common.GameSpyCommand) {
 
 	g.DeviceAuthenticated = true
 	qr2.SetDeviceAuthenticated(g.User.ProfileId)
+	g.acceptOnlineCPUCapability(command)
 }
 
 func checkPayloadVersion(payloadVer string) bool {

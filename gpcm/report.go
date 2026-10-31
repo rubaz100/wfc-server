@@ -11,6 +11,11 @@ import (
 
 func (g *GameSpySession) handleWWFCReport(command common.GameSpyCommand) {
 	for key, value := range command.OtherValues {
+		switch key {
+		case "wl:cpu_prepare", "wl:cpu_ack", "wl:cpu_frame", "wl:cpu_ping", "wl:cpu_grid_error", "wl:ko_event":
+			g.handleOnlineCPUReport(key, value)
+			continue
+		}
 		logging.Info(g.ModuleName, "WiiLink Report:", aurora.Yellow(key))
 
 		keyColored := aurora.BrightCyan(key).String()
@@ -18,6 +23,9 @@ func (g *GameSpySession) handleWWFCReport(command common.GameSpyCommand) {
 		switch key {
 		default:
 			logging.Error(g.ModuleName, "Unknown record", aurora.Cyan(key).String()+":", aurora.Cyan(value))
+
+		case "wl:ko_pos", "wl:ko_eliminate", "wl:ko_apply", "wl:ko_spectate", "wl:ko_result":
+			// Informational client diagnostics; authoritative decisions use wl:ko_event.
 
 		case "wl:bad_packet":
 			profileId, err := strconv.ParseUint(value, 10, 32)

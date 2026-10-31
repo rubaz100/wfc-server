@@ -12,6 +12,7 @@ import (
 	"sync"
 	"sync/atomic"
 	"time"
+	"wwfc/logging"
 )
 
 // Admin authentication for the Host Manager.
@@ -21,21 +22,19 @@ import (
 // and receive a short-lived session token which they send as the request
 // "secret" thereafter, so the slow password hash runs only at login.
 //
-// Transition from the old model: the config.xml apiSecret still authenticates,
-// but only until an admin password has been set. Once set, the apiSecret no
-// longer works — password/token only — honoring "a password instead of the
-// API key".
+// First run initializes a default password. Existing passwords are preserved;
+// the config.xml apiSecret is never accepted as a session credential.
 
 const (
-	adminPasswordKey = "admin_password" // admin_config key
-	pbkdf2Iterations  = 210000
-	pbkdf2KeyLength   = 32
-	pbkdf2SaltLength  = 16
-	tokenTTL          = 12 * time.Hour
+	adminPasswordKey     = "admin_password" // admin_config key
+	defaultAdminPassword = "MKWii"
+	pbkdf2Iterations     = 210000
+	pbkdf2KeyLength      = 32
+	pbkdf2SaltLength     = 16
+	tokenTTL             = 12 * time.Hour
 )
 
-// adminPasswordSet caches whether an admin password exists, so authenticate()
-// (hit on every request) need not query the DB. Updated on set.
+// adminPasswordSet caches the public authentication status. Updated on set.
 var adminPasswordSet atomic.Bool
 
 var (
@@ -43,11 +42,33 @@ var (
 	tokens     = map[string]time.Time{} // token -> expiry
 )
 
-// loadAdminState refreshes the cached "password set" flag from the DB. Called at
-// server start.
-func loadAdminState() {
-	_, ok := db.GetAdminConfig(adminPasswordKey)
-	adminPasswordSet.Store(ok)
+// loadAdminState refreshes the cached "password set" flag from the DB. On first
+// run (no password stored), it auto-sets the default password so the panel is
+// immediately usable without the apiSecret setup gate.
+func loadAdminState() error {
+	adminPasswordSet.Store(false)
+	_, ok, err := db.GetAdminConfig(adminPasswordKey)
+	if err != nil {
+		return fmt.Errorf("read admin password: %w", err)
+	}
+	if ok {
+		adminPasswordSet.Store(true)
+		return nil
+	}
+	encoded, err := hashPassword(defaultAdminPassword)
+	if err != nil {
+		return err
+	}
+	created, err := db.SetAdminConfigIfAbsent(adminPasswordKey, encoded)
+	if err != nil {
+		return fmt.Errorf("initialize admin password: %w", err)
+	}
+	adminPasswordSet.Store(true)
+	if created {
+		logging.Notice("API:admin", "Default admin password set to \""+defaultAdminPassword+
+			"\" — change it in Settings → Admin password")
+	}
+	return nil
 }
 
 // IsAdminPasswordSet reports whether a password has been configured.
@@ -108,8 +129,8 @@ func SetAdminPassword(password string) error {
 
 // CheckAdminPassword verifies a password against the stored hash.
 func CheckAdminPassword(password string) bool {
-	encoded, ok := db.GetAdminConfig(adminPasswordKey)
-	if !ok {
+	encoded, ok, err := db.GetAdminConfig(adminPasswordKey)
+	if err != nil || !ok {
 		return false
 	}
 	return verifyPassword(password, encoded)
