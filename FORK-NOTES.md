@@ -169,3 +169,19 @@ The native input/camera ABI and font/pane capacity were reviewed from source,
 retail assembly and assets. Native/Go compilation only; no automated tests,
 rendering checks or autonomous races. New HUD/control behavior remains for
 user manual validation; physical hardware and broader room coverage are open.
+
+## CPU/live GUI source fixes and menu label (2026-11-02, 0.3.9)
+
+The user confirmed D-pad spectating on 0.3.8 and explicitly retained no tests.
+Source review found no further concrete roster/authority/telemetry-store defect.
+The bundle now expires each guest CPU inventory after 300 transport ticks
+without a newer ITEM snapshot, preserving anti-replay history. Native telemetry
+advances map offsets/live send state only on queue acceptance and reports agreed
+KO placements. The panel uses a local freshness clock during paused/stalled
+polling; it sends no extra HTTP and does not fabricate movement.
+
+The PAL online regional button is labeled “Knockdown Mode” through its existing
+text control. It keeps the regional route and existing Knockout setting; no new
+matchmaking pool. CPU/KO protocol3 and telemetry1 remain unchanged. Source,
+retail assets/assembly, syntax and compilation only. Existing six-racer/repeat
+roster logs do not validate auto-fill12, CPU effects or browser/map behavior.

@@ -13,7 +13,7 @@ const state = {
 	preferenceSave: Promise.resolve(),
 	timer: null,
 	live: {
-		races: [], selectedId: "", selectedGroup: "", timer: null, controller: null,
+		races: [], selectedId: "", selectedGroup: "", timer: null, ageTimer: null, controller: null,
 		generation: 0, auto: null, failed: false, error: "", receivedAt: 0, available: null,
 		maps: new Map(), optionsKey: "",
 	},
@@ -354,6 +354,8 @@ const validMapPoint = (point) => point && typeof point.x === "number" && typeof 
 function stopLiveRacePolling() {
 	if (state.live.timer) clearTimeout(state.live.timer);
 	state.live.timer = null;
+	if (state.live.ageTimer) clearTimeout(state.live.ageTimer);
+	state.live.ageTimer = null;
 	if (state.live.controller) state.live.controller.abort();
 	state.live.controller = null;
 	state.live.generation++;
@@ -362,6 +364,7 @@ function startLiveRacePolling() {
 	stopLiveRacePolling();
 	if (!liveViewVisible()) return;
 	const generation = state.live.generation;
+	startLiveRaceAgeClock();
 	fetchLiveRaces(generation);
 }
 async function fetchLiveRaces(generation) {
@@ -448,6 +451,27 @@ function selectedLiveRace() {
 function liveRaceAge(race) {
 	return Math.max(0, Number(race.ageMs) || 0) + Math.max(0, performance.now() - state.live.receivedAt);
 }
+function startLiveRaceAgeClock() {
+	if (state.live.ageTimer || !liveViewVisible() || !state.live.races.length) return;
+	state.live.ageTimer = setTimeout(() => {
+		state.live.ageTimer = null;
+		if (!liveViewVisible()) return;
+		paintLiveRaceAge();
+		startLiveRaceAgeClock();
+	}, 1000);
+}
+function paintLiveRaceAge() {
+	const race = state.live.races.find((entry) => entry.id === state.live.selectedId);
+	if (!race) return;
+	const age = liveRaceAge(race);
+	const stale = race.stale || age >= 3000;
+	const phase = $("#live-phase-tag");
+	const delayed = $("#live-delay-tag");
+	const seen = $("#live-seen-time");
+	if (phase) phase.className = `tag ${stale ? "gray" : "green"}`;
+	if (delayed) delayed.classList.toggle("hidden", !stale);
+	if (seen) seen.textContent = new Date(Date.now() - age).toLocaleTimeString();
+}
 function racePhaseLabel(phase) {
 	return ({ waiting: "Waiting", loading: "Loading", countdown: "Starting", racing: "Racing", results: "Results", finished: "Results" })[phase] || "Waiting";
 }
@@ -499,12 +523,13 @@ function paintLiveRaces() {
 	</tr>`).join("");
 	$("#live-race-body").innerHTML = `
 		<div class="live-race-heading"><div><span class="live-eyebrow">${esc(race.roomName || `Room ${race.groupId}`)}</span><h2>${esc(courseName(race.courseId))}</h2></div>
-			<div class="live-race-tags"><span class="tag ${stale ? "gray" : "green"}">${racePhaseLabel(race.phase)}</span>${stale ? '<span class="tag yellow">Updates delayed</span>' : ""}${race.mirror ? '<span class="tag blue">Mirror</span>' : ""}${race.knockoutEnabled ? '<span class="tag yellow">Knockout</span>' : ""}<span class="tag gray">${racers.filter((racer) => !racer.isCPU).length} players · ${racers.filter((racer) => racer.isCPU).length} CPUs</span>${Number.isFinite(race.elapsedMs) && race.elapsedMs > 0 ? `<span class="tag blue">${formatRaceFinish(race.elapsedMs)}</span>` : ""}</div>
+			<div class="live-race-tags"><span class="tag ${stale ? "gray" : "green"}" id="live-phase-tag">${racePhaseLabel(race.phase)}</span><span class="tag yellow${stale ? "" : " hidden"}" id="live-delay-tag">Updates delayed</span>${race.mirror ? '<span class="tag blue">Mirror</span>' : ""}${race.knockoutEnabled ? '<span class="tag yellow">Knockout</span>' : ""}<span class="tag gray">${racers.filter((racer) => !racer.isCPU).length} players · ${racers.filter((racer) => racer.isCPU).length} CPUs</span>${Number.isFinite(race.elapsedMs) && race.elapsedMs > 0 ? `<span class="tag blue">${formatRaceFinish(race.elapsedMs)}</span>` : ""}</div>
 		</div>
 		<div class="live-layout">
-			<section class="live-leaderboard" aria-labelledby="live-leaderboard-title"><div class="section-title" id="live-leaderboard-title">Leaderboard</div><div class="table-wrap"><table class="race-table"><caption class="sr-only">${esc(courseName(race.courseId))} leaderboard. Numbered racer markers match the course map.</caption><thead><tr><th scope="col">Place</th><th scope="col">Racer</th><th scope="col">Type</th><th scope="col">Lap</th><th scope="col">Status</th><th scope="col">Finish</th></tr></thead><tbody>${rows || '<tr><td colspan="6" class="empty">Waiting for racer positions.</td></tr>'}</tbody></table></div><p class="hint live-seen">${running ? "Last report" : "Snapshot"}: ${esc(seen)}. Numbered markers match the map.</p></section>
+			<section class="live-leaderboard" aria-labelledby="live-leaderboard-title"><div class="section-title" id="live-leaderboard-title">Leaderboard</div><div class="table-wrap"><table class="race-table"><caption class="sr-only">${esc(courseName(race.courseId))} leaderboard. Numbered racer markers match the course map.</caption><thead><tr><th scope="col">Place</th><th scope="col">Racer</th><th scope="col">Type</th><th scope="col">Lap</th><th scope="col">Status</th><th scope="col">Finish</th></tr></thead><tbody>${rows || '<tr><td colspan="6" class="empty">Waiting for racer positions.</td></tr>'}</tbody></table></div><p class="hint live-seen">${running ? "Last report" : "Snapshot"}: <span id="live-seen-time">${esc(seen)}</span>. Numbered markers match the map.</p></section>
 			<section class="live-map-section" aria-labelledby="live-map-title"><div class="section-title" id="live-map-title">Live course map</div><div class="card live-map-card">${liveCourseMap(race, racers)}<p class="hint live-map-note">${liveMapNote(race.map)}</p></div></section>
 		</div>`;
+	startLiveRaceAgeClock();
 }
 function liveMapNote(map) {
 	if (map && map.complete && Array.isArray(map.points) && map.points.length) return "Course path from the current race. Numbered markers match the leaderboard.";
@@ -571,6 +596,10 @@ function liveCourseMap(race, racers) {
 document.addEventListener("visibilitychange", () => {
 	if (document.hidden) stopLiveRacePolling();
 	else if (liveViewVisible() && liveAutoEnabled()) startLiveRacePolling();
+	else if (liveViewVisible()) {
+		paintLiveRaceAge();
+		startLiveRaceAgeClock();
+	}
 });
 
 /* ---------- Players ---------- */
