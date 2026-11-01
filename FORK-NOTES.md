@@ -97,3 +97,17 @@ identifies the actual embedded producer independently of CPU protocol 3.
 Source review and compilation only; no tests or runtime sessions were run.
 Native coordinate/map coverage, repeated races, split-screen identities and
 physical hardware still require user validation.
+
+## Course-loading hook correction (2026-11-01, 0.3.5)
+
+The embedded native payload now preserves incoming branch labels around three
+CPU call hooks. Captured RAM from the user's failed 0.3.4 session confirms
+that the GM loop's initial branch entered the middle of a CTR patch and
+recursively called the native Update function until its stack overwrote game
+code. Sender and remote-kart skip branches had the same unsafe layout and are
+also corrected. All existing CPU/item/Knockout/live-view features remain in
+the PAL build; CPU protocol 3 and telemetry format 1 are unchanged.
+
+Native/Go compilation and static branch-entry/assembly review only. No new
+autonomous game tests. The diagnostic Dolphin debug/graph profile workaround
+was restored; successful course loading and complete races need user validation.
