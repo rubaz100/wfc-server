@@ -20,7 +20,7 @@
     },
     {
       "path": "binary/payload.RMCPD00.bin",
-      "sha256": "6dfd0ad665afb6826b853f59adbc9604f8f296b9a1e6d1dca7ec5e6740957749",
+      "sha256": "da5d79dedd0276e0d5335a6d2dfe507518cf37ba63d6da7ca2036e68e091b1ab",
       "size": 72232,
       "source": "wfc-patcher-wii/dist/binary/payload.RMCPD00.bin"
     },
@@ -142,9 +142,9 @@
   "development_public_key": "3f32eb87b97515c960177ccf521836668ee926e8581fff84ca63639f4fa57741e44e5c49b75415f57470bcf4ce5e6678f1e5fe3a9818bd8f9ab752997c800081f3c0cef18bac431844957eb806410ea73e0ec06801698886812ffe5dfb62cf0edf4b1c670f09af3740600634e4c89855f3d0b5fe8c9292e069d9027de51e55001cdf44d6514bd6d3e2bcc0caf84290ee90f7c5ce6dd23d9e266d97e0c0828c63dcd68067c75872d2be2fe4395a6c0d8ab488ef3dd2deda4862da9e5fce3ed9091ec6744d74d26fba83c04b7ee0762c45a832acbc8d65dfdc9d002e8af84b8235bde30491ae3d5be9ef85c2b1d5d4f61d30bccd3e38f85155fc5a1b643f64372ee5e70d6888fc553d695e4dcd18ead3d7414c64829f4fc9970ae9743c94f9827f3e899a4e620e99b94fbbef05181f61c7e1edf870bf81e69c58b49adf30dcbeb3389f53577ca71ee5d911670909c0c6206960dad31d870eed15f0852c68cd18a60704c1f9a4fb745698d746fc31476a0904a3763b268334ded222f23fd4d9bbf0ba3fb31e964404a1c840b20c8a07ea167d57499e6becd3e17729356f82d7b85a2bf31a79f984af7a358526b4fc582f892a97c849b361bdf5dae9879bea5c4c15191f760c016f328073d1c44a87321ed6dfd90a2766b274c1caae16ca176609e937ca20fea2a67b2cd96d9126e661ddbb11187cfb8f43716b6aa20ad3c69894d863b049f5",
   "development_public_key_sha256": "a7abf1ed7b22f2f4092554b5ad2130606897fdb1b73aa238052d0e995dd34cd4",
   "format": 1,
-  "patcher_revision": "00a87291971eb94d5d42ef2a9a20453f20631494",
+  "patcher_revision": "bf9ef3b68d3c5ecc5867d8308d02a8c5494c2a52",
   "payload_version": "0.3.9",
-  "wfc_server_revision": "68aa366ea18b6294e9b516ba381cc2bb2da99e19",
+  "wfc_server_revision": "e0549310985e917d847d952fd849bb7eaa5bf406",
   "online_race_protocol_version": 3,
   "online_race_payloads": [
     "RMCPD00"
@@ -155,7 +155,7 @@
     "payload/import/mkw/system/KnockoutSpectator.hpp": "f6a7fabbeef32b02788b523f8f59b53a3293944f2818d82898b237c4dccbe6d7",
     "payload/import/mkw/system/KnockoutSpectatorInput.hpp": "cdba37004120b04c0db08c4c5c8dd764651bf2cd3d647a9f0a21fbde7a3fdc1c",
     "payload/mkwKnockdownMenu.cpp": "950ff150ef73db1bb6073f7eb0639b04de1a1983edcdff84a97768293fc7c4f3",
-    "payload/mkwKnockout.cpp": "fd839bc29a040a5d019d90feef8b6c743c320a0edadcbbbea52684fbab7a0a7e",
+    "payload/mkwKnockout.cpp": "075ceb5d4d43752eb912cf8d2ea2806839403c41ed5763ade901bd14daca5ef9",
     "payload/mkwKnockout.hpp": "9d7ca708f4b8f944d79b543f28cc7fc3a6975efa8736a61464186cac301982d3",
     "payload/mkwKnockoutNotice.hpp": "1d39cd7ccac91c9d063a9a748e9711b88145833a0820479431f40a1020ee4a90",
     "payload/mkwKnockoutState.hpp": "268cbdceb43f09e0da6d9f6478467c57530f93291f93cbe364408d593f297004",

@@ -178,7 +178,9 @@ The bundle now expires each guest CPU inventory after 300 transport ticks
 without a newer ITEM snapshot, preserving anti-replay history. Native telemetry
 advances map offsets/live send state only on queue acceptance and reports agreed
 KO placements. The panel uses a local freshness clock during paused/stalled
-polling; it sends no extra HTTP and does not fabricate movement.
+polling. Owner KO placement includes already-finished racers so their occupied
+places are preserved when another racer is eliminated. The local clock
+sends no extra HTTP and does not fabricate movement.
 
 The PAL online regional button is labeled “Knockdown Mode” through its existing
 text control. It keeps the regional route and existing Knockout setting; no new
