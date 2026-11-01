@@ -1,6 +1,7 @@
 package gpcm
 
 import (
+	"bytes"
 	"encoding/gob"
 	"os"
 	"strings"
@@ -186,6 +187,41 @@ func NewConnection(index uint64, address string) {
 	mutex.Unlock()
 }
 
+// recordKind identifies only protocol names for malformed-input diagnostics.
+// Values are excluded because login records and messages can contain secrets.
+func recordKind(record []byte) string {
+	if len(record) < 2 || record[0] != '\\' {
+		return "invalid"
+	}
+	end := bytes.IndexByte(record[1:], '\\')
+	if end < 1 || end > 32 {
+		return "invalid"
+	}
+	command := string(record[1 : end+1])
+	switch command {
+	case "login", "wl:exlogin", "status", "bm", "ka", "logout", "updatepro", "getprofile", "addbuddy", "delbuddy", "authadd":
+		return command
+	case "wl:report":
+		prefix := []byte("\\wl:report\\\\")
+		if !bytes.HasPrefix(record, prefix) {
+			return command
+		}
+		rest := record[len(prefix):]
+		end = bytes.IndexByte(rest, '\\')
+		if end < 1 || end > 48 {
+			return command
+		}
+		key := string(rest[:end])
+		switch key {
+		case "wl:cpu_prepare", "wl:cpu_ack", "wl:cpu_frame", "wl:cpu_item", "wl:cpu_ping", "wl:cpu_grid_error", "wl:ko_event", "wl:race_live", "wl:race_map", "wl:race_diag", "wl:ko_pos", "wl:ko_eliminate", "wl:ko_apply", "wl:ko_spectate", "wl:ko_result", "wl:mkw_finish_time":
+			return command + "/" + key
+		}
+		return command + "/other"
+	default:
+		return "other"
+	}
+}
+
 func HandlePacket(index uint64, data []byte) {
 	mutex.Lock()
 	session := sessionsByConnIndex[index]
@@ -203,43 +239,64 @@ func HandlePacket(index uint64, data []byte) {
 		}
 	}()
 
-	// Enforce maximum buffer size
-	length := len(session.ReadBuffer) + len(data)
-	if length > 0x4000 {
-		logging.Error(session.ModuleName, "Buffer overflow")
-		return
-	}
-
 	session.ReadBuffer = append(session.ReadBuffer, data...)
-
-	// Packets can be received in fragments, so make sure we're at the end of a packet
-	if string(session.ReadBuffer[max(0, length-7):length]) != `\final\` {
-		return
-	}
-
-	builder := strings.Builder{}
-	builder.Grow(length)
-
-	// Copy one rune at a time to enforce ASCII (rather than UTF-8)
-	for i := 0; i < length; i++ {
-		if session.ReadBuffer[i] == 0 {
-			logging.Error(session.ModuleName, "Null byte in packet")
-			logging.Error(session.ModuleName, "Raw data:", string(data))
+	const maxRecordSize = 0x4000
+	const terminator = "\\final\\"
+	completeEnd := 0
+	for start := 0; start < len(session.ReadBuffer); {
+		record := session.ReadBuffer[start:]
+		end := bytes.Index(record, []byte(terminator))
+		if end >= 0 {
+			record = record[:end+len(terminator)]
+		}
+		// Limit logical records, not a coalesced TCP batch. An incomplete
+		// following report must not hold already-complete telemetry back.
+		if len(record) > maxRecordSize {
+			logging.Error(session.ModuleName, "GameSpy record exceeds byte limit:", recordKind(record), "bytes:", len(record))
+			session.ReadBuffer = nil
 			session.replyError(ErrParse)
-			session.ReadBuffer = []byte{}
 			return
 		}
+		if offset := bytes.IndexByte(record, 0); offset >= 0 {
+			logging.Error(session.ModuleName, "Null byte in GameSpy record:", recordKind(record), "record offset:", offset, "record bytes:", len(record), "buffer offset:", start+offset, "TCP chunk bytes:", len(data))
+			session.ReadBuffer = nil
+			session.replyError(ErrParse)
+			return
+		}
+		if record[0] != '\\' {
+			logging.Error(session.ModuleName, "Invalid GameSpy record start; record bytes:", len(record), "buffer offset:", start)
+			session.ReadBuffer = nil
+			session.replyError(ErrParse)
+			return
+		}
+		if end < 0 {
+			break
+		}
+		completeEnd = start + len(record)
+		start = completeEnd
+	}
+	if completeEnd == 0 {
+		return
+	}
+	complete := session.ReadBuffer[:completeEnd]
+	// Retain only the unfinished tail in its own allocation. Parsed data may
+	// include credentials and must not remain in the session buffer.
+	session.ReadBuffer = append([]byte(nil), session.ReadBuffer[completeEnd:]...)
 
-		builder.WriteRune(rune(session.ReadBuffer[i]))
+	builder := strings.Builder{}
+	builder.Grow(len(complete))
+
+	// Copy one rune at a time to enforce ASCII (rather than UTF-8)
+	for _, value := range complete {
+		builder.WriteRune(rune(value))
 	}
 
 	message := builder.String()
-	session.ReadBuffer = []byte{}
 
 	commands, err := common.ParseGameSpyMessage(message)
 	if err != nil {
-		logging.Error(session.ModuleName, "Error parsing message:", err.Error())
-		logging.Error(session.ModuleName, "Raw data:", message)
+		logging.Error(session.ModuleName, "Error parsing GameSpy records:", err.Error(), "complete bytes:", len(complete), "first record:", recordKind(complete))
+		session.ReadBuffer = nil
 		session.replyError(ErrParse)
 		return
 	}

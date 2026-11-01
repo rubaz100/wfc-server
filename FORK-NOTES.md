@@ -111,3 +111,28 @@ the PAL build; CPU protocol 3 and telemetry format 1 are unchanged.
 Native/Go compilation and static branch-entry/assembly review only. No new
 autonomous game tests. The diagnostic Dolphin debug/graph profile workaround
 was restored; successful course loading and complete races need user validation.
+
+## Race-end transport and spectator corrections (2026-11-01, 0.3.6)
+
+The user's 0.3.5 run reached racing, but the owner later received a fatal GPCM
+parse error: its buffered input contained a NUL. An earlier nested `wl:report`
+key also showed malformed report framing. The eliminated guest initiated QR2
+shutdown before closing GPCM, separately and before the owner's parse failure.
+
+GPCM now drains complete records even when TCP also carries part of the next
+record. The 16 KiB limit applies to each logical record, with a bounded pending
+tail, rather than a coalesced batch. Malformed starts and NUL bytes remain fatal;
+diagnostics identify allowlisted record types and byte offsets without logging
+credentials or message contents. The stream correction does not itself prove
+where the malformed native output originated.
+
+The embedded payload integrates a bounded complete-report queue and a single
+GP publication path, replacing separate field appends that could interleave.
+Spectator handling refreshes idle counters only for an eliminated unfinished
+local human, preserves Knockout placement/time state through finishing stages,
+and includes race-notice corrections. Existing CPU/Knockout protocol 3 and live
+telemetry format 1 remain unchanged.
+
+Source review and compilation only. No automated tests or new races were run;
+spectator retention, in-race notices, results and live views remain unverified
+in gameplay after these corrections.
