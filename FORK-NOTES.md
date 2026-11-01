@@ -154,3 +154,18 @@ record as authority or change server state. Native clients report suppression
 once per controller/race through the serialized report queue. Protocol versions
 remain CPU/KO 3 and telemetry 1. No automated tests or autonomous races run;
 full gameplay/results validation remains with the user.
+
+## Knockout HUD and spectator controls (2026-11-01, 0.3.8)
+
+The user confirmed 0.3.7 works in their current two-Dolphin setup. Payload 0.3.8
+adds M4 camera selection and HUD lifecycle polish: D-pad Left/Right cycles
+eligible humans/CPUs, Down resumes automatic leader following, and the race
+notice shows placement, watched target/mode and controls. It restores native
+finish/status text on spectator exit. Camera settings/history refresh only
+on target changes, with existing one-camera guards. No server protocol or
+native finish/network behavior changes; CPU/KO 3 and telemetry 1 remain.
+
+The native input/camera ABI and font/pane capacity were reviewed from source,
+retail assembly and assets. Native/Go compilation only; no automated tests,
+rendering checks or autonomous races. New HUD/control behavior remains for
+user manual validation; physical hardware and broader room coverage are open.
