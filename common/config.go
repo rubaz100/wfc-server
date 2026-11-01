@@ -80,9 +80,9 @@ type EventReportingConfig struct {
 }
 
 var (
-	// The regular release ships protocol 2 for PAL retail. Availability also
+	// The regular release ships protocol 3 for PAL retail. Availability also
 	// checks the embedded bundle, so stale or incompatible assets stay disabled.
-	OnlineCPUProtocolVersion = "2"
+	OnlineCPUProtocolVersion = "3"
 
 	config       Config
 	configLoaded bool

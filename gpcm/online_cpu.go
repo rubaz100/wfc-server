@@ -21,7 +21,7 @@ var cpuRelay = struct {
 }{engine: onlinecpu.New(uint32(time.Now().UnixNano()))}
 
 func OnlineCPUAvailable() bool {
-	return common.OnlineCPUProtocolVersion == "2" && assets.OnlineRaceProtocolVersion() == onlinecpu.ProtocolVersion
+	return common.OnlineCPUProtocolVersion == "3" && assets.OnlineRaceProtocolVersion() == onlinecpu.ProtocolVersion
 }
 
 func cpuPolicy() onlinecpu.Policy {
@@ -30,7 +30,7 @@ func cpuPolicy() onlinecpu.Policy {
 }
 
 func (g *GameSpySession) acceptOnlineCPUCapability(command common.GameSpyCommand) {
-	if !g.LoggedIn || !g.DeviceAuthenticated || g.GameName != "mariokartwii" || command.OtherValues["wl:cpu_ver"] != "2" {
+	if !g.LoggedIn || !g.DeviceAuthenticated || g.GameName != "mariokartwii" || command.OtherValues["wl:cpu_ver"] != "3" {
 		return
 	}
 	mutex.Lock()
@@ -58,7 +58,7 @@ func sendOnlineCPUSettings(pid uint32) {
 		// an upper bound; the actual roster always comes from the proposal.
 		count = onlinecpu.MaxPlayers - 1
 	}
-	deliverOnlineCPU([]onlinecpu.Delivery{{To: pid, Message: fmt.Sprintf("LCPU2:S:%d:%d:%d", protocol, enabled, count)}})
+	deliverOnlineCPU([]onlinecpu.Delivery{{To: pid, Message: fmt.Sprintf("LCPU3:S:%d:%d:%d", protocol, enabled, count)}})
 }
 
 // BroadcastOnlineCPUSettings advertises policy for the next selection only;
@@ -93,11 +93,13 @@ func (g *GameSpySession) handleOnlineCPUReport(key, value string) {
 	var value32 uint64
 	var frame []byte
 	var err error
-	if key == "wl:cpu_frame" || key == "wl:ko_event" {
+	if key == "wl:cpu_frame" || key == "wl:ko_event" || key == "wl:cpu_item" {
 		// Reject oversized reports before allocating/decoding attacker input.
 		size := onlinecpu.FrameSize
 		if key == "wl:ko_event" {
 			size = onlinecpu.KnockoutEventSize
+		} else if key == "wl:cpu_item" {
+			size = onlinecpu.ItemStateSize
 		}
 		if len(value) != common.Base64DwcEncoding.EncodedLen(size) {
 			return
@@ -119,6 +121,8 @@ func (g *GameSpySession) handleOnlineCPUReport(key, value string) {
 		deliveries = cpuRelay.engine.Ack(room, pid, uint32(value32), now)
 	case "wl:cpu_frame":
 		deliveries = cpuRelay.engine.Frame(room, pid, frame, now)
+	case "wl:cpu_item":
+		deliveries = cpuRelay.engine.ItemState(room, pid, frame, now)
 	case "wl:ko_event":
 		deliveries = cpuRelay.engine.KnockoutEvent(room, pid, frame, now)
 	case "wl:cpu_ping":
@@ -134,15 +138,18 @@ func deliverOnlineCPU(deliveries []onlinecpu.Delivery) {
 	for _, delivery := range deliveries {
 		message := delivery.Message
 		if delivery.Frame != nil {
-			message = "LCPU2:F:" + common.Base64DwcEncoding.EncodeToString(delivery.Frame)
+			message = "LCPU3:F:" + common.Base64DwcEncoding.EncodeToString(delivery.Frame)
 		}
 		if delivery.Knockout != nil {
-			message = "LCPU2:E:" + common.Base64DwcEncoding.EncodeToString(delivery.Knockout)
+			message = "LCPU3:E:" + common.Base64DwcEncoding.EncodeToString(delivery.Knockout)
+		}
+		if delivery.ItemState != nil {
+			message = "LCPU3:I:" + common.Base64DwcEncoding.EncodeToString(delivery.ItemState)
 		}
 		if len(message) >= 256 || strings.ContainsAny(message, "\x00\\|") {
 			continue
 		}
-		if strings.HasPrefix(message, "LCPU2:P:") || strings.HasPrefix(message, "LCPU2:C:") || strings.HasPrefix(message, "LCPU2:X:") || strings.HasPrefix(message, "LCPU2:E:") {
+		if strings.HasPrefix(message, "LCPU3:P:") || strings.HasPrefix(message, "LCPU3:C:") || strings.HasPrefix(message, "LCPU3:X:") || strings.HasPrefix(message, "LCPU3:E:") {
 			logging.Info("GPCM:CPU", "Control:", message, "recipient:", delivery.To)
 		}
 		mutex.Lock()

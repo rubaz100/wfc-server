@@ -466,7 +466,7 @@ async function renderSettings() {
 						<label for="cf-online-cpu-count">CPUs to add when auto-fill is off</label>
 						<input type="number" id="cf-online-cpu-count" min="1" max="11" step="1" value="${esc(cfg.onlineCPUCount ?? 4)}" ${cpuAvailable && cfg.onlineCPUEnabled && !cfg.onlineCPUAutoFill ? "" : "disabled"} required aria-describedby="cf-online-cpu-help">
 					</div>
-					<span class="hint" id="cf-online-cpu-help">${cpuAvailable ? "Experimental PAL online VS support for public matchmaking and private rooms. Adds CPUs up to 12 total racers from the next race. All players need the current compatible PAL disc payload. CPU items and Battle are not supported yet; multiplayer validation is pending." : "CPU support for public matchmaking and private rooms is in development for this server build. Your preference and count are saved for a compatible build; CPUs are currently unavailable."}</span>
+					<span class="hint" id="cf-online-cpu-help">${cpuAvailable ? "Experimental PAL online VS support for public matchmaking and private rooms. Adds CPUs up to 12 total racers from the next race. All players need the current compatible PAL disc payload. CPU item synchronization is experimental; Battle remains unsupported. Multiplayer validation is pending." : "CPU support for public matchmaking and private rooms is in development for this server build. Your preference and count are saved for a compatible build; CPUs are currently unavailable."}</span>
 				</fieldset>
 				<div class="form-actions"><button class="btn btn-primary" type="submit">Save settings</button></div>
 			</form></div>

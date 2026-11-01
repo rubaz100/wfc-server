@@ -12,8 +12,9 @@ import (
 )
 
 const (
-	ProtocolVersion = 2
+	ProtocolVersion = 3
 	FrameSize       = 112
+	ItemStateSize   = 32
 	MaxPlayers      = 12
 	LoadingGrace    = 90 * time.Second
 	HostTimeout     = 5 * time.Second
@@ -39,10 +40,11 @@ type Room struct {
 }
 
 type Delivery struct {
-	To       uint32
-	Message  string
-	Frame    []byte
-	Knockout []byte
+	To        uint32
+	Message   string
+	Frame     []byte
+	Knockout  []byte
+	ItemState []byte
 }
 
 type Plan struct {
@@ -60,6 +62,7 @@ type round struct {
 	members           []uint32
 	acks              map[uint32]bool
 	sequences         map[uint8]uint32
+	itemSequences     map[uint8]uint32
 	created           time.Time
 	lastAlive         time.Time
 	knockoutSequence  uint32
@@ -162,14 +165,14 @@ func (e *Engine) Prepare(room Room, profileID, nonce uint32, policy Policy, now 
 	}
 	state.active = &round{
 		Plan:    Plan{Epoch: e.nextEpoch, OwnerPID: room.OwnerPID, HumanCount: humanCount, CPUCount: cpuCount, Seed: seed, KnockoutEnabled: knockout},
-		members: append([]uint32(nil), capable...), acks: map[uint32]bool{}, sequences: map[uint8]uint32{}, created: now,
+		members: append([]uint32(nil), capable...), acks: map[uint32]bool{}, sequences: map[uint8]uint32{}, itemSequences: map[uint8]uint32{}, created: now,
 	}
 	state.prepared = map[uint32]uint32{}
 	ko := 0
 	if knockout {
 		ko = 1
 	}
-	message := fmt.Sprintf("LCPU2:P:%d:%d:%d:%d:%d:%d", e.nextEpoch, room.OwnerPID, humanCount, cpuCount, seed, ko)
+	message := fmt.Sprintf("LCPU3:P:%d:%d:%d:%d:%d:%d", e.nextEpoch, room.OwnerPID, humanCount, cpuCount, seed, ko)
 	return append(changes, deliver(state.active.members, message)...)
 }
 
@@ -184,7 +187,7 @@ func (e *Engine) Ack(room Room, profileID, epoch uint32, now time.Time) []Delive
 	}
 	state.active.Committed = true
 	state.active.created = now
-	return append(changes, deliver(state.active.members, fmt.Sprintf("LCPU2:C:%d", epoch))...)
+	return append(changes, deliver(state.active.members, fmt.Sprintf("LCPU3:C:%d", epoch))...)
 }
 
 func (e *Engine) Ping(room Room, profileID, epoch uint32, now time.Time) []Delivery {
@@ -194,7 +197,7 @@ func (e *Engine) Ping(room Room, profileID, epoch uint32, now time.Time) []Deliv
 		if state.active.CPUCount > 0 || state.active.KnockoutEnabled {
 			// Finished CPUs may stop producing kart packets while humans are
 			// still racing. Guests must distinguish that from a lost owner.
-			changes = append(changes, deliver(state.active.members, fmt.Sprintf("LCPU2:H:%d", epoch))...)
+			changes = append(changes, deliver(state.active.members, fmt.Sprintf("LCPU3:H:%d", epoch))...)
 		}
 	}
 	return changes
@@ -215,6 +218,32 @@ func (e *Engine) Frame(room Room, profileID uint32, frame []byte, now time.Time)
 	for _, pid := range state.active.members {
 		if pid != profileID {
 			changes = append(changes, Delivery{To: pid, Frame: append([]byte(nil), frame...)})
+		}
+	}
+	return changes
+}
+
+// ItemState carries a normalized native ITEM row through the authenticated
+// owner channel. These are replaceable snapshots; object-use and hit events
+// retain the native P2P EVENT queue's repetition and duplicate suppression.
+func (e *Engine) ItemState(room Room, profileID uint32, item []byte, now time.Time) []Delivery {
+	state, _, _, _, changes, ok := e.reconcile(room)
+	if !ok || state.active == nil || !state.active.Committed || state.active.OwnerPID != profileID || !validItemState(item, state.active.Plan) {
+		return changes
+	}
+	id := item[8]
+	if state.active.knockoutMask&(uint16(1)<<id) != 0 {
+		return changes
+	}
+	sequence := binary.BigEndian.Uint32(item[4:8])
+	if last, exists := state.active.itemSequences[id]; exists && int32(sequence-last) <= 0 {
+		return changes
+	}
+	state.active.itemSequences[id] = sequence
+	state.active.lastAlive = now
+	for _, pid := range state.active.members {
+		if pid != profileID {
+			changes = append(changes, Delivery{To: pid, ItemState: append([]byte(nil), item...)})
 		}
 	}
 	return changes
@@ -402,7 +431,7 @@ func (e *Engine) reconcile(room Room) (*roomState, int, []uint32, bool, []Delive
 func cancel(state *roomState) []Delivery {
 	var deliveries []Delivery
 	if state.active != nil {
-		deliveries = deliver(state.active.members, fmt.Sprintf("LCPU2:X:%d", state.active.Epoch))
+		deliveries = deliver(state.active.members, fmt.Sprintf("LCPU3:X:%d", state.active.Epoch))
 	}
 	state.active = nil
 	state.prepared = map[uint32]uint32{}
@@ -446,4 +475,21 @@ func validFrame(frame []byte, plan Plan) bool {
 		}
 	}
 	return true
+}
+
+func validItemState(item []byte, plan Plan) bool {
+	if len(item) != ItemStateSize || binary.BigEndian.Uint32(item[:4]) != plan.Epoch ||
+		int(item[8]) < plan.HumanCount || int(item[8]) >= plan.HumanCount+plan.CPUCount || item[9] != 1 {
+		return false
+	}
+	for _, region := range [][]byte{item[10:16], item[21:32]} {
+		for _, value := range region {
+			if value != 0 {
+				return false
+			}
+		}
+	}
+	validID := func(value byte) bool { return value <= 0x12 || value == 0x14 }
+	stored, dragged, mode, tailMode := item[17], item[18], item[19], item[20]
+	return validID(stored) && validID(dragged) && mode <= 7 && tailMode <= 7
 }

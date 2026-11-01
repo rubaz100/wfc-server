@@ -12,7 +12,7 @@ import (
 func (g *GameSpySession) handleWWFCReport(command common.GameSpyCommand) {
 	for key, value := range command.OtherValues {
 		switch key {
-		case "wl:cpu_prepare", "wl:cpu_ack", "wl:cpu_frame", "wl:cpu_ping", "wl:cpu_grid_error", "wl:ko_event":
+		case "wl:cpu_prepare", "wl:cpu_ack", "wl:cpu_frame", "wl:cpu_item", "wl:cpu_ping", "wl:cpu_grid_error", "wl:ko_event":
 			g.handleOnlineCPUReport(key, value)
 			continue
 		}

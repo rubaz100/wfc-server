@@ -61,3 +61,19 @@ release alongside port preflight and macOS rebind fixes.
 This integration was compiled only. No automated, smoke, browser or Dolphin
 checks were run, as requested by the user. Historical test expectations require
 revision before automated validation resumes.
+
+## CPU item integration (2026-11-01)
+
+Regular builds embed payload 0.3.3 and require race protocol 3 for CPU/Knockout
+negotiation. CPU inventory snapshots use a separate 32-byte owner-authenticated
+relay with frozen membership, epoch/sequence, reserved-byte and item bounds
+checks. Native owner item AI and EVENT/RACE effects are retained; guest item
+state uses bounded received rows rather than two-local-human outgoing buffers.
+Inventory is cleared for KO and terminal racers. CPU snapshot publications
+pause under GameSpy output backpressure while pending inventory is retained.
+
+Host Manager describes CPU items as experimental and Battle as unsupported.
+Only compilation and source review were performed, with no tests as requested.
+GPCM inventory versus UDP item-event timing, live effects/collisions and Wii/vWii
+hardware behavior remain unverified. An inventory-only stalled stream can keep
+the last valid item state while owner heartbeats continue.
