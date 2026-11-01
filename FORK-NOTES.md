@@ -136,3 +136,21 @@ telemetry format 1 remain unchanged.
 Source review and compilation only. No automated tests or new races were run;
 spectator retention, in-race notices, results and live views remain unverified
 in gameplay after these corrections.
+
+## Knockout pre-elimination inactivity (2026-11-01, 0.3.7)
+
+The user's 0.3.6 retry logged guest shutdown before the first KO event; it was
+never eliminated. The prior spectator-only reset therefore could not prevent
+the ordinary AFK kick. The owner remained GPCM-connected and accepted a final
+KO event without NUL/parse errors. The user clarified that results appeared,
+followed by both clients seeing the peer-disconnect message. Connection
+retention through results and return to the room remain unverified.
+
+Payload 0.3.7 intercepts only the native online VS input-idle decision during
+the entire negotiated KO race. Ordinary VS inactivity, general disconnects
+and the separate hard race limit retain native behavior. GPCM recognizes a
+bounded `wl:ko_afk` diagnostic with input slots 0–3; it does not interpret the
+record as authority or change server state. Native clients report suppression
+once per controller/race through the serialized report queue. Protocol versions
+remain CPU/KO 3 and telemetry 1. No automated tests or autonomous races run;
+full gameplay/results validation remains with the user.

@@ -30,6 +30,15 @@ func (g *GameSpySession) handleWWFCReport(command common.GameSpyCommand) {
 		case "wl:ko_pos", "wl:ko_eliminate", "wl:ko_apply", "wl:ko_spectate", "wl:ko_result":
 			// Informational client diagnostics; authoritative decisions use wl:ko_event.
 
+		case "wl:ko_afk":
+			// Diagnostic only: the native client suppressed its own AFK kick
+			// in a negotiated Knockout race. This never changes server policy.
+			slot, err := strconv.ParseUint(value, 10, 8)
+			if g.GameName != "mariokartwii" || err != nil || slot > 3 {
+				continue
+			}
+			logging.Notice(g.ModuleName, "Knockout retained idle local input slot:", aurora.Cyan(slot))
+
 		case "wl:bad_packet":
 			profileId, err := strconv.ParseUint(value, 10, 32)
 			if err != nil {

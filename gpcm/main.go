@@ -213,7 +213,7 @@ func recordKind(record []byte) string {
 		}
 		key := string(rest[:end])
 		switch key {
-		case "wl:cpu_prepare", "wl:cpu_ack", "wl:cpu_frame", "wl:cpu_item", "wl:cpu_ping", "wl:cpu_grid_error", "wl:ko_event", "wl:race_live", "wl:race_map", "wl:race_diag", "wl:ko_pos", "wl:ko_eliminate", "wl:ko_apply", "wl:ko_spectate", "wl:ko_result", "wl:mkw_finish_time":
+		case "wl:cpu_prepare", "wl:cpu_ack", "wl:cpu_frame", "wl:cpu_item", "wl:cpu_ping", "wl:cpu_grid_error", "wl:ko_event", "wl:race_live", "wl:race_map", "wl:race_diag", "wl:ko_pos", "wl:ko_eliminate", "wl:ko_apply", "wl:ko_spectate", "wl:ko_result", "wl:ko_afk", "wl:mkw_finish_time":
 			return command + "/" + key
 		}
 		return command + "/other"
