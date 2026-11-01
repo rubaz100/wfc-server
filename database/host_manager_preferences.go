@@ -21,7 +21,7 @@ func DefaultHostManagerPreferences() HostManagerPreferences {
 
 func ValidateHostManagerPreferences(preferences HostManagerPreferences) error {
 	switch preferences.LastView {
-	case "dashboard", "rooms", "players", "bans", "settings":
+	case "dashboard", "rooms", "races", "players", "bans", "settings":
 	default:
 		return fmt.Errorf("invalid Host Manager view")
 	}

@@ -77,3 +77,23 @@ Only compilation and source review were performed, with no tests as requested.
 GPCM inventory versus UDP item-event timing, live effects/collisions and Wii/vWii
 hardware behavior remain unverified. An inventory-only stalled stream can keep
 the last valid item state while owner heartbeats continue.
+
+## Host Manager live races (2026-11-01)
+
+Payload 0.3.4 adds independent telemetry format 1 for PAL online VS, even with
+CPU/Knockout switches off. The Live races tab displays authenticated room
+leaderboards and native-world racer markers over the loaded ENPT path graph.
+Separate point/edge chunks preserve branches without copying map textures.
+
+GPCM accepts only current room authority on the authenticated active session,
+validates bounded snapshots and map chunks, and retains at most 256 rooms for
+two minutes after their last report. Epoch/sequence and connection identity
+prevent stale stream replacement; missing/disconnected reporters become stale.
+The moderator-only Host Manager `/api/races` exposes no addresses or secrets.
+The frontend pauses when hidden/logged out and supports manual refresh; Live
+races is included in persistent last-tab preferences. Capability metadata
+identifies the actual embedded producer independently of CPU protocol 3.
+
+Source review and compilation only; no tests or runtime sessions were run.
+Native coordinate/map coverage, repeated races, split-screen identities and
+physical hardware still require user validation.

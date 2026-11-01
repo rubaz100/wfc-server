@@ -2,7 +2,7 @@
 
 /* ---------- State & helpers ---------- */
 const SECRET_KEY = "wfc_admin_secret";
-const PANEL_VIEWS = new Set(["dashboard", "rooms", "players", "bans", "settings"]);
+const PANEL_VIEWS = new Set(["dashboard", "rooms", "races", "players", "bans", "settings"]);
 const REFRESH_INTERVALS = new Set([0, 3, 5, 10, 30, 60]);
 const state = {
 	secret: localStorage.getItem(SECRET_KEY) || "", // holds a session token once logged in
@@ -12,6 +12,11 @@ const state = {
 	preferencesLoaded: false,
 	preferenceSave: Promise.resolve(),
 	timer: null,
+	live: {
+		races: [], selectedId: "", selectedGroup: "", timer: null, controller: null,
+		generation: 0, auto: null, failed: false, error: "", receivedAt: 0, available: null,
+		maps: new Map(), optionsKey: "",
+	},
 };
 
 const $ = (sel, root = document) => root.querySelector(sel);
@@ -74,11 +79,11 @@ async function handle(res) {
 	}
 	return data;
 }
-async function apiGet(path, params = {}) {
+async function apiGet(path, params = {}, options = {}) {
 	const u = new URL(path, location.origin);
 	u.searchParams.set("secret", state.secret);
 	for (const [k, v] of Object.entries(params)) u.searchParams.set(k, v);
-	return handle(await fetch(u, { headers: { Accept: "application/json" } }));
+	return handle(await fetch(u, { headers: { Accept: "application/json" }, signal: options.signal }));
 }
 async function apiPost(path, body = {}) {
 	return handle(
@@ -113,6 +118,15 @@ function onError(e) {
 
 /* ---------- Gate ---------- */
 function showGate(err = "") {
+	stopLiveRacePolling();
+	state.live.races = [];
+	state.live.maps.clear();
+	state.live.selectedId = "";
+	state.live.selectedGroup = "";
+	state.live.auto = null;
+	state.live.failed = false;
+	state.live.error = "";
+	state.live.available = null;
 	$("#app").classList.add("hidden");
 	$("#gate").classList.remove("hidden");
 	$("#gate-error").textContent = err;
@@ -182,6 +196,7 @@ $("#tabs").addEventListener("click", (e) => {
 });
 function setView(view, persist = true) {
 	if (!PANEL_VIEWS.has(view)) return;
+	stopLiveRacePolling();
 	state.view = view;
 	if (persist && state.preferencesLoaded) {
 		state.preferences.lastView = view;
@@ -200,8 +215,10 @@ function setView(view, persist = true) {
 /* ---------- Polling ---------- */
 const POLLED = new Set(["dashboard", "rooms", "players"]);
 function startPolling() {
-	stopPolling();
+	if (state.timer) clearInterval(state.timer);
+	state.timer = null;
 	refreshStats();
+	if (state.view === "races" && !state.live.controller && !state.live.timer) startLiveRacePolling();
 	if (state.preferences.refreshSeconds === 0) return;
 	state.timer = setInterval(() => {
 		refreshStats();
@@ -211,6 +228,7 @@ function startPolling() {
 function stopPolling() {
 	if (state.timer) clearInterval(state.timer);
 	state.timer = null;
+	stopLiveRacePolling();
 }
 async function refreshStats() {
 	try {
@@ -232,6 +250,7 @@ function render() {
 	switch (state.view) {
 		case "dashboard": return renderDashboard();
 		case "rooms": return renderRooms();
+		case "races": return renderLiveRaces();
 		case "players": return renderPlayers();
 		case "bans": return renderBans();
 		case "settings": return renderSettings();
@@ -322,6 +341,237 @@ function roomCard(gr) {
 		</div>
 	</div>`;
 }
+
+/* ---------- Live races ---------- */
+const RACER_COLORS = ["#126da5", "#b13a41", "#548124", "#8c4baf", "#a56211", "#087b7c", "#b13878", "#4356b1", "#765331", "#52701b", "#6f5990", "#406c7d"];
+const liveAutoEnabled = () => !state.live.failed && (state.live.auto === true || (state.live.auto !== false && state.preferences.refreshSeconds !== 0));
+const liveViewVisible = () => state.view === "races" && !!state.secret && !document.hidden && !$("#app").classList.contains("hidden");
+const raceMarkerNumber = (racer) => Number.isInteger(racer.id) && racer.id >= 0 && racer.id < 12 ? racer.id + 1 : "?";
+const racerColor = (racer) => RACER_COLORS[Number.isInteger(racer.id) && racer.id >= 0 && racer.id < 12 ? racer.id : 0];
+const raceRacerName = (racer) => racer.name || (racer.isCPU ? `CPU ${raceMarkerNumber(racer)}` : `Player ${raceMarkerNumber(racer)}`);
+const validMapPoint = (point) => point && typeof point.x === "number" && typeof point.z === "number" && Number.isFinite(point.x) && Number.isFinite(point.z) && Math.abs(point.x) <= 1e7 && Math.abs(point.z) <= 1e7;
+
+function stopLiveRacePolling() {
+	if (state.live.timer) clearTimeout(state.live.timer);
+	state.live.timer = null;
+	if (state.live.controller) state.live.controller.abort();
+	state.live.controller = null;
+	state.live.generation++;
+}
+function startLiveRacePolling() {
+	stopLiveRacePolling();
+	if (!liveViewVisible()) return;
+	const generation = state.live.generation;
+	fetchLiveRaces(generation);
+}
+async function fetchLiveRaces(generation) {
+	if (!liveViewVisible() || generation !== state.live.generation || state.live.controller) return;
+	const controller = new AbortController();
+	state.live.controller = controller;
+	let timedOut = false;
+	const timeout = setTimeout(() => { timedOut = true; controller.abort(); }, 8000);
+	try {
+		const result = await apiGet("/api/races", {}, { signal: controller.signal });
+		if (!liveViewVisible() || generation !== state.live.generation) return;
+		if (!result || !Array.isArray(result.races)) throw new Error("Invalid live race response");
+		state.live.available = result.available !== false;
+		state.live.races = state.live.available ? result.races.filter((race) => race && typeof race.id === "string" && race.id).slice(0, 64) : [];
+		if (!state.live.available) state.live.auto = false;
+		state.live.receivedAt = performance.now();
+		state.live.error = "";
+		const activeIds = new Set(state.live.races.map((race) => race.id));
+		for (const id of state.live.maps.keys()) if (!activeIds.has(id)) state.live.maps.delete(id);
+		for (const race of state.live.races) updateLiveMapHistory(race);
+		paintLiveRaces();
+	} catch (err) {
+		if ((err.name === "AbortError" && !timedOut) || generation !== state.live.generation) return;
+		if (err.auth) { onError(err); return; }
+		state.live.failed = true;
+		state.live.auto = false;
+		state.live.error = "Could not refresh live races. Resume live or refresh once to retry.";
+		if (liveViewVisible()) paintLiveRaces();
+	} finally {
+		clearTimeout(timeout);
+		if (state.live.controller === controller) state.live.controller = null;
+		if (generation === state.live.generation && liveViewVisible() && liveAutoEnabled()) {
+			state.live.timer = setTimeout(() => {
+				state.live.timer = null;
+				fetchLiveRaces(generation);
+			}, 1000);
+		}
+	}
+}
+function renderLiveRaces() {
+	state.live.optionsKey = "";
+	$("#content").innerHTML = `
+		<div class="page-heading">
+			<span class="heading-orb"><svg class="icon" aria-hidden="true"><use href="#icon-race"/></svg></span>
+			<div><h1>Live races</h1><p>Follow the field, from the starting grid to the finish.</p></div>
+		</div>
+		<div class="card live-controls">
+			<div class="field live-room-field"><label for="live-room">Room</label><select id="live-room"><option>Waiting for a race…</option></select></div>
+			<div class="live-buttons"><button type="button" class="btn btn-primary" id="live-toggle">Pause live</button><button type="button" class="btn" id="live-refresh">Refresh once</button></div>
+			<p class="hint live-refresh-note" id="live-refresh-note"></p>
+		</div>
+		<div class="note hidden live-error" id="live-error" role="alert"></div>
+		<div id="live-race-body"></div>`;
+	$("#live-room").addEventListener("change", (event) => {
+		state.live.selectedId = event.target.value;
+		const race = state.live.races.find((entry) => entry.id === state.live.selectedId);
+		state.live.selectedGroup = race ? String(race.groupId) : "";
+		paintLiveRaces();
+	});
+	$("#live-toggle").addEventListener("click", () => {
+		state.live.auto = !liveAutoEnabled();
+		state.live.failed = false;
+		state.live.error = "";
+		stopLiveRacePolling();
+		paintLiveRaces();
+		if (liveAutoEnabled()) startLiveRacePolling();
+	});
+	$("#live-refresh").addEventListener("click", () => {
+		state.live.failed = false;
+		state.live.error = "";
+		startLiveRacePolling();
+	});
+	paintLiveRaces();
+	startLiveRacePolling();
+}
+function selectedLiveRace() {
+	let race = state.live.races.find((entry) => entry.id === state.live.selectedId);
+	if (!race && state.live.selectedGroup) race = state.live.races.find((entry) => String(entry.groupId) === state.live.selectedGroup);
+	if (!race) race = state.live.races[0];
+	state.live.selectedId = race ? race.id : "";
+	if (race) state.live.selectedGroup = String(race.groupId);
+	return race;
+}
+function liveRaceAge(race) {
+	return Math.max(0, Number(race.ageMs) || 0) + Math.max(0, performance.now() - state.live.receivedAt);
+}
+function racePhaseLabel(phase) {
+	return ({ waiting: "Waiting", loading: "Loading", countdown: "Starting", racing: "Racing", results: "Results", finished: "Results" })[phase] || "Waiting";
+}
+function formatRaceFinish(ms) {
+	if (!Number.isFinite(ms) || ms <= 0) return "—";
+	return `${Math.floor(ms / 60000)}:${String(Math.floor(ms / 1000) % 60).padStart(2, "0")}.${String(Math.floor(ms) % 1000).padStart(3, "0")}`;
+}
+function liveRacerStatus(racer, phase) {
+	if (racer.disconnected) return '<span class="tag gray">Disconnected</span>';
+	if (racer.eliminated) return '<span class="tag red">Eliminated</span>';
+	if (racer.finished) return '<span class="tag green">Finished</span>';
+	if (phase === "waiting" || phase === "loading" || phase === "countdown") return '<span class="tag gray">On grid</span>';
+	return '<span class="tag blue">Racing</span>';
+}
+function paintLiveRaces() {
+	if (state.view !== "races" || !$("#live-race-body")) return;
+	const race = selectedLiveRace();
+	const selector = $("#live-room");
+	const options = state.live.races.map((entry) => `<option value="${esc(entry.id)}">${esc(entry.roomName || `Room ${entry.groupId}`)} · ${esc(courseName(entry.courseId))}</option>`).join("") || '<option value="">No race available</option>';
+	if (state.live.optionsKey !== options) {
+		selector.innerHTML = options;
+		state.live.optionsKey = options;
+	}
+	selector.value = state.live.selectedId;
+	selector.disabled = !state.live.races.length;
+	const running = liveAutoEnabled();
+	$("#live-toggle").textContent = running ? "Pause live" : "Resume live";
+	$("#live-toggle").setAttribute("aria-pressed", String(running));
+	$("#live-refresh-note").textContent = running ? "Live updates every second while this tab is visible." : "Live updates paused. Refresh once for a new snapshot, or resume live.";
+	$("#live-error").textContent = state.live.error;
+	$("#live-error").classList.toggle("hidden", !state.live.error);
+	if (!race) {
+		const unavailable = state.live.available === false;
+		$("#live-race-body").innerHTML = `<div class="card live-empty"><span class="live-empty-orb"><svg class="icon" aria-hidden="true"><use href="#icon-race"/></svg></span><h2>${unavailable ? "Live races unavailable" : "Waiting for the starting grid"}</h2><p>${unavailable ? "This server build does not include a compatible game payload for live race reporting." : "Start an online VS race with the current compatible PAL game payload. The leaderboard and map will appear here when the host reports the race."}</p></div>`;
+		return;
+	}
+	const racers = (Array.isArray(race.racers) ? race.racers : []).filter((racer) => racer && Number.isInteger(racer.id) && racer.id >= 0 && racer.id < 12).slice(0, 12);
+	const sorted = [...racers].sort((a, b) => (Number(a.position) > 0 ? a.position : 99) - (Number(b.position) > 0 ? b.position : 99) || (Number(b.progress) || 0) - (Number(a.progress) || 0) || a.id - b.id);
+	const age = liveRaceAge(race);
+	const stale = race.stale || age >= 3000;
+	const seen = new Date(Date.now() - age).toLocaleTimeString();
+	const laps = Number.isInteger(race.laps) && race.laps > 0 ? race.laps : 0;
+	const rows = sorted.map((racer) => `<tr class="${racer.eliminated || racer.disconnected ? "racer-inactive" : ""}">
+		<td class="race-place">${Number.isInteger(racer.position) && racer.position > 0 && racer.position <= 12 ? racer.position : "—"}</td>
+		<th scope="row"><span class="racer-identity"><span class="racer-number" style="--racer-color:${racerColor(racer)}">${raceMarkerNumber(racer)}</span><span class="racer-name">${esc(raceRacerName(racer))}</span></span></th>
+		<td><span class="tag ${racer.isCPU ? "gray" : "blue"}">${racer.isCPU ? "CPU" : "Player"}</span></td>
+		<td class="mono">${Number.isInteger(racer.lap) && racer.lap > 0 ? `${laps ? Math.min(racer.lap, laps) : racer.lap}${laps ? ` / ${laps}` : ""}` : "—"}</td>
+		<td>${liveRacerStatus(racer, race.phase)}</td><td class="mono">${racer.finished ? formatRaceFinish(racer.finishMs) : "—"}</td>
+	</tr>`).join("");
+	$("#live-race-body").innerHTML = `
+		<div class="live-race-heading"><div><span class="live-eyebrow">${esc(race.roomName || `Room ${race.groupId}`)}</span><h2>${esc(courseName(race.courseId))}</h2></div>
+			<div class="live-race-tags"><span class="tag ${stale ? "gray" : "green"}">${racePhaseLabel(race.phase)}</span>${stale ? '<span class="tag yellow">Updates delayed</span>' : ""}${race.mirror ? '<span class="tag blue">Mirror</span>' : ""}${race.knockoutEnabled ? '<span class="tag yellow">Knockout</span>' : ""}<span class="tag gray">${racers.filter((racer) => !racer.isCPU).length} players · ${racers.filter((racer) => racer.isCPU).length} CPUs</span>${Number.isFinite(race.elapsedMs) && race.elapsedMs > 0 ? `<span class="tag blue">${formatRaceFinish(race.elapsedMs)}</span>` : ""}</div>
+		</div>
+		<div class="live-layout">
+			<section class="live-leaderboard" aria-labelledby="live-leaderboard-title"><div class="section-title" id="live-leaderboard-title">Leaderboard</div><div class="table-wrap"><table class="race-table"><caption class="sr-only">${esc(courseName(race.courseId))} leaderboard. Numbered racer markers match the course map.</caption><thead><tr><th scope="col">Place</th><th scope="col">Racer</th><th scope="col">Type</th><th scope="col">Lap</th><th scope="col">Status</th><th scope="col">Finish</th></tr></thead><tbody>${rows || '<tr><td colspan="6" class="empty">Waiting for racer positions.</td></tr>'}</tbody></table></div><p class="hint live-seen">${running ? "Last report" : "Snapshot"}: ${esc(seen)}. Numbered markers match the map.</p></section>
+			<section class="live-map-section" aria-labelledby="live-map-title"><div class="section-title" id="live-map-title">Live course map</div><div class="card live-map-card">${liveCourseMap(race, racers)}<p class="hint live-map-note">${liveMapNote(race.map)}</p></div></section>
+		</div>`;
+}
+function liveMapNote(map) {
+	if (map && map.complete && Array.isArray(map.points) && map.points.length) return "Course path from the current race. Numbered markers match the leaderboard.";
+	if (map && map.kind === "enemy-path" && !map.complete) return "Course path is loading. Showing reported racer positions and recent movement.";
+	return "Course path unavailable. Showing reported racer positions and recent movement.";
+}
+function updateLiveMapHistory(race) {
+	let history = state.live.maps.get(race.id);
+	if (!history) {
+		history = { bounds: null, trails: new Map() };
+		state.live.maps.set(race.id, history);
+	}
+	const points = race.map && race.map.complete && Array.isArray(race.map.points) ? race.map.points.filter(validMapPoint).slice(0, 512) : [];
+	for (const racer of (Array.isArray(race.racers) ? race.racers : []).slice(0, 12)) {
+		if (!racer || !Number.isInteger(racer.id) || racer.id < 0 || racer.id >= 12 || !racer.hasPosition || !validMapPoint(racer)) continue;
+		points.push(racer);
+		let trail = history.trails.get(racer.id);
+		if (!trail) { trail = []; history.trails.set(racer.id, trail); }
+		const last = trail[trail.length - 1];
+		if (!last || last.x !== racer.x || last.z !== racer.z) {
+			trail.push({ x: racer.x, z: racer.z });
+			if (trail.length > 30) trail.shift();
+		}
+	}
+	for (const point of points) {
+		if (!history.bounds) history.bounds = { minX: point.x, maxX: point.x, minZ: point.z, maxZ: point.z };
+		else {
+			history.bounds.minX = Math.min(history.bounds.minX, point.x);
+			history.bounds.maxX = Math.max(history.bounds.maxX, point.x);
+			history.bounds.minZ = Math.min(history.bounds.minZ, point.z);
+			history.bounds.maxZ = Math.max(history.bounds.maxZ, point.z);
+		}
+	}
+}
+function liveCourseMap(race, racers) {
+	const history = state.live.maps.get(race.id);
+	if (!history || !history.bounds) return '<div class="live-map-waiting"><svg class="icon" aria-hidden="true"><use href="#icon-rooms"/></svg><span>Waiting for map positions</span></div>';
+	const bounds = history.bounds;
+	const width = 640, height = 460, padding = 32;
+	const spanX = Math.max(1000, bounds.maxX - bounds.minX), spanZ = Math.max(1000, bounds.maxZ - bounds.minZ);
+	const scale = Math.min((width - padding * 2) / spanX, (height - padding * 2) / spanZ);
+	const centerX = (bounds.minX + bounds.maxX) / 2, centerZ = (bounds.minZ + bounds.maxZ) / 2;
+	const project = (point) => ({ x: width / 2 + (point.x - centerX) * scale, y: height / 2 + (point.z - centerZ) * scale });
+	const pointText = (point) => { const p = project(point); return `${p.x.toFixed(2)},${p.y.toFixed(2)}`; };
+	const points = race.map && race.map.complete && Array.isArray(race.map.points) ? race.map.points.slice(0, 512) : [];
+	const segments = race.map && Array.isArray(race.map.segments) ? race.map.segments.slice(0, 1024) : [];
+	const paths = segments.map((edge) => {
+		if (!edge || !Number.isInteger(edge.from) || !Number.isInteger(edge.to) || !validMapPoint(points[edge.from]) || !validMapPoint(points[edge.to])) return "";
+		return `M${pointText(points[edge.from])}L${pointText(points[edge.to])}`;
+	}).join("");
+	const trailLines = racers.map((racer) => {
+		const trail = history.trails.get(racer.id) || [];
+		return trail.length > 1 ? `<polyline points="${trail.map(pointText).join(" ")}" fill="none" stroke="${racerColor(racer)}" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" opacity=".38"/>` : "";
+	}).join("");
+	const markers = [...racers].sort((a, b) => (b.position || 99) - (a.position || 99)).map((racer) => {
+		if (!racer.hasPosition || !validMapPoint(racer)) return "";
+		const p = project(racer);
+		const inactive = racer.eliminated || racer.disconnected;
+		return `<g transform="translate(${p.x.toFixed(2)} ${p.y.toFixed(2)})" opacity="${inactive ? ".5" : "1"}"><title>${esc(raceRacerName(racer))}${racer.position ? ` · place ${esc(racer.position)}` : ""}${inactive ? " · inactive" : ""}</title><circle r="12" fill="${racerColor(racer)}" stroke="#fff" stroke-width="2.5"/><text text-anchor="middle" dominant-baseline="central" fill="#fff" font-size="12" font-weight="700" font-family="Segoe UI, sans-serif">${raceMarkerNumber(racer)}</text></g>`;
+	}).join("");
+	const pathDots = !paths ? points.filter(validMapPoint).map((point) => { const p = project(point); return `<circle cx="${p.x.toFixed(2)}" cy="${p.y.toFixed(2)}" r="2" fill="#8eaeb7"/>`; }).join("") : "";
+	return `<svg class="live-course-map" viewBox="0 0 ${width} ${height}" role="img" aria-label="${esc(courseName(race.courseId))}: live racer positions. Marker numbers match the leaderboard."><title>${esc(courseName(race.courseId))} live course map</title><desc>${paths ? "Course path and live racer positions." : "Reported racer positions and recent movement."} Marker numbers identify the racers in the leaderboard.</desc>${paths ? `<path d="${paths}" class="course-path-border"/><path d="${paths}" class="course-path"/>` : pathDots}${trailLines}${markers}</svg>`;
+}
+document.addEventListener("visibilitychange", () => {
+	if (document.hidden) stopLiveRacePolling();
+	else if (liveViewVisible() && liveAutoEnabled()) startLiveRacePolling();
+});
 
 /* ---------- Players ---------- */
 async function renderPlayers() {
@@ -492,6 +742,7 @@ async function renderSettings() {
 			try {
 				await savePanelPreferences({ refreshSeconds });
 				state.preferences.refreshSeconds = refreshSeconds;
+				state.live.auto = null;
 				startPolling();
 				toast("Panel preferences saved", "good");
 			} catch (err) { onError(err); }

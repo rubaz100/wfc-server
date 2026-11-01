@@ -20,50 +20,50 @@
     },
     {
       "path": "binary/payload.RMCPD00.bin",
-      "sha256": "5c8fd4324ed5565ee369dd47fa196fde984b395cb945abc22c82a3507e377e09",
-      "size": 49536,
+      "sha256": "bd2d831171d38f37b82cd9ed41a5f45c4261c113c1e25c355b4d76f07977787f",
+      "size": 57628,
       "source": "wfc-patcher-wii/dist/binary/payload.RMCPD00.bin"
     },
     {
       "path": "binary/payload.RMCPN0001.bin",
-      "sha256": "3a277c440a623196a3de84e9ef59d8534d1fad6b0004fb488a701fd1d401c7e8",
-      "size": 7460,
+      "sha256": "7df0cffff16c82b81f65b75c6721901f43aeb740004d2acd618c823bc86ea778",
+      "size": 7472,
       "source": "wfc-patcher-wii/dist/binary/payload.RMCPN0001.bin"
     },
     {
       "path": "binary/payload.RMCED00.bin",
-      "sha256": "5d6186c09421e44d0a7f13bdcf4af234b23194ec22ae3976c7c4aabd626499c5",
-      "size": 23936,
+      "sha256": "b7c87a8c73c7fba9500df5d5ec0442c9be4d282b9fa8265a610e00952b92dda1",
+      "size": 23952,
       "source": "wfc-patcher-wii/dist/binary/payload.RMCED00.bin"
     },
     {
       "path": "binary/payload.RMCEN0001.bin",
-      "sha256": "48e6f0674133eded318e94da44622f26a666fd563f5cbe54f8735b77a84b41cb",
-      "size": 7460,
+      "sha256": "09b98aed91c5451baf1e6fab969cb39496b69ab9f42f2a526308ce8b8c47226e",
+      "size": 7472,
       "source": "wfc-patcher-wii/dist/binary/payload.RMCEN0001.bin"
     },
     {
       "path": "binary/payload.RMCJD00.bin",
-      "sha256": "46e499994e91f0d366c2f85c61b6823214260990816763398d2c7117bf9609cd",
-      "size": 23936,
+      "sha256": "fcda2010636a65caef027f5cece51ddb0d0e27bfd81f22bb6f6f5202662df602",
+      "size": 23952,
       "source": "wfc-patcher-wii/dist/binary/payload.RMCJD00.bin"
     },
     {
       "path": "binary/payload.RMCJN0001.bin",
-      "sha256": "6fb6ad3e6e3bc75d8e1b3d3c1dc2c1ca2d46c2c24f9cff4dd2700eb3d79e21cc",
-      "size": 7460,
+      "sha256": "ff39674d1bdd51221d23eaa7a071172067ef7de3ae3776c46f1010f53ad08cf2",
+      "size": 7472,
       "source": "wfc-patcher-wii/dist/binary/payload.RMCJN0001.bin"
     },
     {
       "path": "binary/payload.RMCKD00.bin",
-      "sha256": "dca08d31cbeadc6277311f56b97673adb8e9d8283cfd514337cba9923c5710f8",
-      "size": 23936,
+      "sha256": "e5b384c88aede0b9bee97f46dbd37e906b29202759a8a0d12b229dc0b8e9a0fb",
+      "size": 23952,
       "source": "wfc-patcher-wii/dist/binary/payload.RMCKD00.bin"
     },
     {
       "path": "binary/payload.RMCKN0001.bin",
-      "sha256": "181185d010c94047d0c3006988056f4b4feecb60dc91749241793be049de0ae5",
-      "size": 7460,
+      "sha256": "ba16e8031f00821df0be5df2ed5bf02025e01adaee19de9f4113a6c2ffd1fff6",
+      "size": 7472,
       "source": "wfc-patcher-wii/dist/binary/payload.RMCKN0001.bin"
     },
     {
@@ -142,9 +142,9 @@
   "development_public_key": "3f32eb87b97515c960177ccf521836668ee926e8581fff84ca63639f4fa57741e44e5c49b75415f57470bcf4ce5e6678f1e5fe3a9818bd8f9ab752997c800081f3c0cef18bac431844957eb806410ea73e0ec06801698886812ffe5dfb62cf0edf4b1c670f09af3740600634e4c89855f3d0b5fe8c9292e069d9027de51e55001cdf44d6514bd6d3e2bcc0caf84290ee90f7c5ce6dd23d9e266d97e0c0828c63dcd68067c75872d2be2fe4395a6c0d8ab488ef3dd2deda4862da9e5fce3ed9091ec6744d74d26fba83c04b7ee0762c45a832acbc8d65dfdc9d002e8af84b8235bde30491ae3d5be9ef85c2b1d5d4f61d30bccd3e38f85155fc5a1b643f64372ee5e70d6888fc553d695e4dcd18ead3d7414c64829f4fc9970ae9743c94f9827f3e899a4e620e99b94fbbef05181f61c7e1edf870bf81e69c58b49adf30dcbeb3389f53577ca71ee5d911670909c0c6206960dad31d870eed15f0852c68cd18a60704c1f9a4fb745698d746fc31476a0904a3763b268334ded222f23fd4d9bbf0ba3fb31e964404a1c840b20c8a07ea167d57499e6becd3e17729356f82d7b85a2bf31a79f984af7a358526b4fc582f892a97c849b361bdf5dae9879bea5c4c15191f760c016f328073d1c44a87321ed6dfd90a2766b274c1caae16ca176609e937ca20fea2a67b2cd96d9126e661ddbb11187cfb8f43716b6aa20ad3c69894d863b049f5",
   "development_public_key_sha256": "a7abf1ed7b22f2f4092554b5ad2130606897fdb1b73aa238052d0e995dd34cd4",
   "format": 1,
-  "patcher_revision": "f549a3b1a0f4e9fe34bee00b83bd17d91de11a40",
-  "payload_version": "0.3.3",
-  "wfc_server_revision": "3f865e41c48041aa452c44fd3ae0825cc642977e",
+  "patcher_revision": "de862982d3c4a4de3b9e11c25f64e092bfad7605",
+  "payload_version": "0.3.4",
+  "wfc_server_revision": "2aa9f13264f9562453925d16cb18e8aaacf8159f",
   "online_race_protocol_version": 3,
   "online_race_payloads": [
     "RMCPD00"
@@ -164,11 +164,14 @@
     "payload/mkwOnlineCPUItems.cpp": "2eb4dac322a38b632e0be9228ac52f6cab0dc6ffae2bfca24a17d659e6fa1843",
     "payload/mkwOnlineCPUNative.cpp": "3e6ee19b2d883109fcdaec1179e5080a82eb536f1f436d571bd9a2ede2a75c8b",
     "payload/mkwOnlineCPUProtocol.hpp": "4ad2cf83ad426121f88ed9657edc78ba45de427134d3c35dcdc2a49028faf312",
+    "payload/mkwRaceTelemetry.cpp": "d4dc066a0ce5ef285310774655c4af68a229f127944aa387d03466e7b5f660ae",
+    "payload/mkwRaceTelemetry.hpp": "3c627672a06b500ade204e07458fcc336e0ccf5d100d28668c424edddfc90c1c",
     "payload/mkwSecurity.cpp": "1501f7706adbc38d8fbf12393e332b910c1803c9d6557f14384a9161971d309f",
-    "payload/wwfc.cpp": "3dab3dfc461b94ee9ddfd0ecbde8a3217576d4eb3c5ce485830fa39bdeb38c7c",
+    "payload/wwfc.cpp": "6ac6777a771cb48974ba5d58cbd89ba4babbdbada6f5ed2e20845abe29628827",
     "payload/wwfcLogin.cpp": "0997e8669995d63fa3c3209975e4b1d0aaddb4da276fe1049109848e09b0026c",
-    "payload/wwfcProcess.cpp": "2b7a69904808a07ae97dbffa5229a792251586a44681fa96b041174521ee9533",
-    "payload/wwfcVersion.h": "d4d709ff5cc35858f1df91429dfa665cabad8edaad680421e17104df54152fe0"
+    "payload/wwfcPatch.hpp": "f84917616808e747b69af2e1fff768db11fa93c187f03c092977189b443bebff",
+    "payload/wwfcProcess.cpp": "1f4cbdd4d8ab03c09fc721f8412aac8b96928ac6d3a51fbea5d68a75a805fa2d",
+    "payload/wwfcVersion.h": "35152b5be781a9d959514460336cb7c6bae533e4ee93b9d51022edc22c8d99f5"
   },
   "native_gameplay_build": {
     "RMCPD00": [
@@ -182,12 +185,25 @@
     "common/config_network.go": "9be81301bec545f4b7e83de29beeded6f3733cd95af41efba8066a427a38bf51",
     "api/config.go": "a8d2cc00933eb2b6db9404b064070b802310da9da8044bec05a4575eecd458c5",
     "api/preferences.go": "e1a8dcadab73f5addf3747a9c53331ab1504934eb9572c68ddc41a395d1699e4",
-    "api/main.go": "f1e72ac47ae36c005b8b84b36648fe55bef6d058f86f315dbb16f68699085604",
+    "api/main.go": "344424456e24164cf31b9eef84fb3aac80c782e7c61c7ade9067f42ac5413da4",
+    "api/races.go": "e10d2e6b0f19fa27727ac1a01baeccbd983c74c6d45b66e40b109a5947549b61",
     "cli/cli.go": "9e6c790b9d9473e768c0af7f77e7624e755b46025e3b4bbbe9dc8514b31615ca",
     "gpcm/online_cpu.go": "9cfbfd62ec93c0b60fd70ce57fa86b85991afae1bab606d8eb3700e207d66283",
-    "gpcm/report.go": "7abd5b85407183d5145ec06538ff5a5b333f7f6e60afeaf1f4563675823cb314",
+    "gpcm/report.go": "a57970be0bee68abcceb10b51f262a5b193bbcaf7f4e2d1f9c7e531a9285b00e",
     "internal/onlinecpu/engine.go": "d74662a6907e3f0350f68143364b999a11d2cb596be95f1f8a8bb368283b5eb8",
-    "database/host_manager_preferences.go": "56ae86c0c69c301701d9d14aa5dc509e3d7891998b5c1328a07e66b584b0c5e0",
-    "admin/web/app.js": "4b1b1a9f7123e94d468cb2ac95b8852827353a451eaf71f033cfb009b2d0702b"
-  }
+    "internal/onlinecpu/telemetry.go": "a1828be51730497703171bbcda7599e4ea5154cba6b936ab34fbac717a8f9186",
+    "gpcm/race_telemetry.go": "7318ad4ba75d5b53e88b3d026abcf645f4f7bd2aeda1d587b6911b7f21099229",
+    "qr2/race_telemetry.go": "d81593e758bd907b004a3dda0a2f9ccd24cea504137554d1d0e2c364ed103c5f",
+    "database/host_manager_preferences.go": "9f02f7f0fb84d21b65d6f1ed6a18ecc587420e717d974eb2b9d3711bc6596392",
+    "admin/web/app.js": "7f3e384f4cd7ee2302d6f849f532f3c1258794463b2e7824f51cd75b50ef6094",
+    "admin/web/style.css": "2b6220ec87ce43f8e6b1b7814977bd6a4ed6afb37fec7e22b69db69a7705dc81",
+    "admin/web/index.html": "2e31edc47de3a30f63e33143b6b7f6c666605a3c0b295b36b324b4482443be3f",
+    "internal/assets/assets.go": "3e333c92e804ff5af5cef85ac9b839d21d06c1f6e026b79bba3134c3e73aeb22",
+    "internal/assets/features.go": "a389571c369b4495918e75a6b7d536aaba27377479f2992066b883b78e9020bb",
+    "internal/racetelemetry/store.go": "5aff585c0e1fd83ffc1ae10fb0ebea215581a2116bab34092c5cae4a7042e4d0"
+  },
+  "race_telemetry_protocol_version": 1,
+  "race_telemetry_payloads": [
+    "RMCPD00"
+  ]
 }

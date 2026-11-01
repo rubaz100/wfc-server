@@ -7,6 +7,29 @@ var raceFeatures struct {
 	protocol int
 }
 
+var telemetryFeatures struct {
+	sync.Once
+	protocol int
+}
+
+// RaceTelemetryProtocolVersion reports the live-view producer embedded in the
+// regular payload bundle. It is independent of CPU/Knockout negotiation.
+func RaceTelemetryProtocolVersion() int {
+	telemetryFeatures.Do(func() {
+		bundle, err := Open()
+		if err != nil {
+			return
+		}
+		for _, game := range bundle.Manifest.RaceTelemetryPayloads {
+			if game == "RMCPD00" && len(bundle.Files["binary/payload."+game+".bin"]) != 0 {
+				telemetryFeatures.protocol = bundle.Manifest.RaceTelemetryProtocol
+				return
+			}
+		}
+	})
+	return telemetryFeatures.protocol
+}
+
 // OnlineRaceProtocolVersion reports capabilities of the actual embedded bundle,
 // rather than a linker flag alone. Invalid or older bundles stay unavailable.
 func OnlineRaceProtocolVersion() int {

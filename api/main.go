@@ -54,6 +54,7 @@ func RegisterHandlers(mux *http.ServeMux) {
 func RegisterExtendedHandlers(mux *http.ServeMux) {
 	RegisterHandlers(mux)
 	mux.HandleFunc("/api/players", HandlePlayers)
+	mux.HandleFunc("/api/races", HandleRaces)
 	mux.HandleFunc("/api/bans", HandleBans)
 	mux.HandleFunc("/api/motd", HandleMOTD)
 	mux.HandleFunc("/api/config", HandleConfig)
