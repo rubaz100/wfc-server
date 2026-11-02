@@ -20,8 +20,8 @@
     },
     {
       "path": "binary/payload.RMCPD00.bin",
-      "sha256": "1db7f67cf823f32984a167078e8b50cc091cfc4b313714cacbcf49b69f32483f",
-      "size": 86596,
+      "sha256": "3979d25487068214d1a04af6c5c324a3d64254be7f1a5a4d6ac89cd293f20455",
+      "size": 87072,
       "source": "wfc-patcher-wii/dist/binary/payload.RMCPD00.bin"
     },
     {
@@ -144,7 +144,7 @@
   "format": 1,
   "patcher_revision": "f90239f137ab428d29ddf89705321f80e5e003e0",
   "payload_version": "0.3.13",
-  "wfc_server_revision": "4fb3f15004b28ca3c0000218cd5e62e5a5013b51",
+  "wfc_server_revision": "0ddbf6ad79c0655be5564bdc0baefda24810ad1b",
   "online_race_protocol_version": 3,
   "online_race_payloads": [
     "RMCPD00"
@@ -159,11 +159,11 @@
     "payload/mkwKnockdownMenu.cpp": "027d4b0fc7421e70a09a44753a7d31a4cdbfc21c425cf1ad44ed6025b77ed609",
     "payload/mkwKnockdownMode.cpp": "80376e63ea796b911ec6c1d8bb2ecf6a9e7b20c06ab91012130a4e2e8578e0d6",
     "payload/mkwKnockdownMode.hpp": "2f00a9a69de4147c3bdef0b691d6a2c9127183555e64f88f9ead339d6341695c",
-    "payload/mkwKnockout.cpp": "99e45b8f953231478ccd18427aa9140424aefcfce410bde1d6cfe21f65f93f83",
-    "payload/mkwKnockout.hpp": "455f0b81b8e06ded88052a89184dc6f90995a542e6a59e5859da2e116421b30d",
+    "payload/mkwKnockout.cpp": "f339b3eead601d9cf832469758ec78926bba0e7b4fccd97dc13c00f133a0236d",
+    "payload/mkwKnockout.hpp": "548db66e0fc606c9e061977d83b90e9777bf16f11b15155e6c3bfcc4c4ec272e",
     "payload/mkwKnockoutNotice.hpp": "22ace6c69163631dcb83e47a4741c2b1b394f49bdf5d69f1c6e186de35b01b81",
     "payload/mkwKnockoutState.hpp": "cd3d2706f9641e01cec4ae43abfb6174422b5a439ae2e19d0084c25f45e48ed9",
-    "payload/mkwKnockoutUI.cpp": "f41708b211b4d2db778f6bd7dca127a3bebf32df4c0321b50bbdc531eeaa0f5c",
+    "payload/mkwKnockoutUI.cpp": "0b451bdd4126171ab4eaeb44b7a01550b7faaf49d912de432ae863c84895a97e",
     "payload/mkwOnlineCPU.cpp": "293d3003d326c60f8a18fc3e5aef65d3c2d4d3e4f8a9ea41ed3e1639d943181e",
     "payload/mkwOnlineCPU.hpp": "ca50a8f3527261ccae70c4c298dc7ad741747bb9434744cff62715fbc45b3127",
     "payload/mkwOnlineCPUEvents.cpp": "6b9ce7dc18d00d7ccfc17f7d5c457c2d74049df566df036cffb32ddb21fdc060",
