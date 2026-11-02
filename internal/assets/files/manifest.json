@@ -20,49 +20,49 @@
     },
     {
       "path": "binary/payload.RMCPD00.bin",
-      "sha256": "57a5c8add2845bf343d8d30606296cd35724dde0d355c4f3be9f8d39c92d7297",
-      "size": 74616,
+      "sha256": "c66830b12cd0e4de0ff862b0d97683be26410d084d4b3a59842dad30d413b050",
+      "size": 74864,
       "source": "wfc-patcher-wii/dist/binary/payload.RMCPD00.bin"
     },
     {
       "path": "binary/payload.RMCPN0001.bin",
-      "sha256": "326d798addadb394a57f7de4df173e068c5499b2d7112534072a154b9afdf2d1",
+      "sha256": "311761c8b56205033ccbc52842f94a1162b775443791433cfca6b13afe1ce7f1",
       "size": 7472,
       "source": "wfc-patcher-wii/dist/binary/payload.RMCPN0001.bin"
     },
     {
       "path": "binary/payload.RMCED00.bin",
-      "sha256": "2ce22dbff68ff24c7b5ac145369bdbe32d1edbbe2ddd58b83f1a091169427d04",
+      "sha256": "07264dc99a2e6ee17d02225b841b66771138b22a85c10b70830ffa7a4b7fb0d1",
       "size": 34156,
       "source": "wfc-patcher-wii/dist/binary/payload.RMCED00.bin"
     },
     {
       "path": "binary/payload.RMCEN0001.bin",
-      "sha256": "2ab0abd9984a79673edb1cbf5a9483f54d449dfcea71b8e444ef0639ad4c6e01",
+      "sha256": "7bec7ce2d94a0c03866aa7a7d91312dd52f3d1d80e6e2ecf0adc17ddc888f359",
       "size": 7472,
       "source": "wfc-patcher-wii/dist/binary/payload.RMCEN0001.bin"
     },
     {
       "path": "binary/payload.RMCJD00.bin",
-      "sha256": "a83cc46efe53f58980bd240372850e5d794d7ca43ddc81b58be68454317a2e05",
+      "sha256": "306bf4a34a1941e42843e18536342ee758ee6960d3edfacc2feae6d1c8f22cdf",
       "size": 34156,
       "source": "wfc-patcher-wii/dist/binary/payload.RMCJD00.bin"
     },
     {
       "path": "binary/payload.RMCJN0001.bin",
-      "sha256": "4dcc255df64622a00088bbefaae2135a48cefc3b4a0047e8ec4f7c81db991f4d",
+      "sha256": "9a4f48d0ec14a65c724f3c8beb24ee50943bbb8d6176fa5cbfe7bea2487bf746",
       "size": 7472,
       "source": "wfc-patcher-wii/dist/binary/payload.RMCJN0001.bin"
     },
     {
       "path": "binary/payload.RMCKD00.bin",
-      "sha256": "b555652f3bd892b2b881d262405ff0332e78c46f4e6f14a3bdfe8d1f5d85f6e7",
+      "sha256": "2deb0e9ead43c944c73c38af5db2a74c19c67e62186801cd2e6a6beeaeb5c803",
       "size": 34156,
       "source": "wfc-patcher-wii/dist/binary/payload.RMCKD00.bin"
     },
     {
       "path": "binary/payload.RMCKN0001.bin",
-      "sha256": "46e2b6a6838749c52ceb5806cd4d77266ae1272f44b1759dd7e774ea73c78dd6",
+      "sha256": "732d9246f10451cee2b9a080e35bb92a98e24bf783a6a2368d0f0c44de24aaef",
       "size": 7472,
       "source": "wfc-patcher-wii/dist/binary/payload.RMCKN0001.bin"
     },
@@ -142,9 +142,9 @@
   "development_public_key": "3f32eb87b97515c960177ccf521836668ee926e8581fff84ca63639f4fa57741e44e5c49b75415f57470bcf4ce5e6678f1e5fe3a9818bd8f9ab752997c800081f3c0cef18bac431844957eb806410ea73e0ec06801698886812ffe5dfb62cf0edf4b1c670f09af3740600634e4c89855f3d0b5fe8c9292e069d9027de51e55001cdf44d6514bd6d3e2bcc0caf84290ee90f7c5ce6dd23d9e266d97e0c0828c63dcd68067c75872d2be2fe4395a6c0d8ab488ef3dd2deda4862da9e5fce3ed9091ec6744d74d26fba83c04b7ee0762c45a832acbc8d65dfdc9d002e8af84b8235bde30491ae3d5be9ef85c2b1d5d4f61d30bccd3e38f85155fc5a1b643f64372ee5e70d6888fc553d695e4dcd18ead3d7414c64829f4fc9970ae9743c94f9827f3e899a4e620e99b94fbbef05181f61c7e1edf870bf81e69c58b49adf30dcbeb3389f53577ca71ee5d911670909c0c6206960dad31d870eed15f0852c68cd18a60704c1f9a4fb745698d746fc31476a0904a3763b268334ded222f23fd4d9bbf0ba3fb31e964404a1c840b20c8a07ea167d57499e6becd3e17729356f82d7b85a2bf31a79f984af7a358526b4fc582f892a97c849b361bdf5dae9879bea5c4c15191f760c016f328073d1c44a87321ed6dfd90a2766b274c1caae16ca176609e937ca20fea2a67b2cd96d9126e661ddbb11187cfb8f43716b6aa20ad3c69894d863b049f5",
   "development_public_key_sha256": "a7abf1ed7b22f2f4092554b5ad2130606897fdb1b73aa238052d0e995dd34cd4",
   "format": 1,
-  "patcher_revision": "36f59c19021928cf91606cd1e91af77ec9735dbc",
-  "payload_version": "0.3.10",
-  "wfc_server_revision": "21f6118f15d9d49708c0d409cea453a5869d93c3",
+  "patcher_revision": "0894589d3c6aae2a5282b0a1047d19af95c97c34",
+  "payload_version": "0.3.11",
+  "wfc_server_revision": "888e21f2e62d237e3e2ca51319bb3de732bfeb57",
   "online_race_protocol_version": 3,
   "online_race_payloads": [
     "RMCPD00"
@@ -158,7 +158,7 @@
     "payload/mkwKnockdownMenu.cpp": "027d4b0fc7421e70a09a44753a7d31a4cdbfc21c425cf1ad44ed6025b77ed609",
     "payload/mkwKnockdownMode.cpp": "4f532917fec9d6531f09d414fd1b0a06b02d71855eb40be5f964a7fba8dd4849",
     "payload/mkwKnockdownMode.hpp": "568a628e83374c7d9d58d31ebd5cb1c6f73d6ed8097b65a60848de6575fc515e",
-    "payload/mkwKnockout.cpp": "075ceb5d4d43752eb912cf8d2ea2806839403c41ed5763ade901bd14daca5ef9",
+    "payload/mkwKnockout.cpp": "3bfc2eca518b0b8e49d28c13c1ba99d0538c887aef0e23bf08e084b1a1d693d2",
     "payload/mkwKnockout.hpp": "9d7ca708f4b8f944d79b543f28cc7fc3a6975efa8736a61464186cac301982d3",
     "payload/mkwKnockoutNotice.hpp": "1d39cd7ccac91c9d063a9a748e9711b88145833a0820479431f40a1020ee4a90",
     "payload/mkwKnockoutState.hpp": "268cbdceb43f09e0da6d9f6478467c57530f93291f93cbe364408d593f297004",
@@ -180,7 +180,7 @@
     "payload/wwfcLogin.cpp": "f84259fedb909b74d6e32a6720ba3961b39bd9bebc81de7cc83b248c93f69cc8",
     "payload/wwfcPatch.hpp": "f84917616808e747b69af2e1fff768db11fa93c187f03c092977189b443bebff",
     "payload/wwfcProcess.cpp": "f7745c30ca71fc8d235f0dfc97c458efe6ca38d73d9171763ea610f99006b546",
-    "payload/wwfcVersion.h": "e391d9b10d0641db4213b40128bf154d4cdb68f90a3bc32291feda4c725973ef"
+    "payload/wwfcVersion.h": "e4db928283117952a4806ddc9b6e36ab9a0323ff4b63fbb665b27274288200fd"
   },
   "native_gameplay_build": {
     "RMCPD00": [
@@ -198,7 +198,7 @@
     "api/races.go": "e10d2e6b0f19fa27727ac1a01baeccbd983c74c6d45b66e40b109a5947549b61",
     "cli/cli.go": "9e6c790b9d9473e768c0af7f77e7624e755b46025e3b4bbbe9dc8514b31615ca",
     "gpcm/online_cpu.go": "ed4696be5e91d1d61c31dae942a250838665915b011530401e7c6a9f3b0f2da9",
-    "gpcm/report.go": "7d27ce9908138cb4cb0e4d05aa178af60c72b019596fcfdfb7f6da80470a428c",
+    "gpcm/report.go": "72a8c19d462853413991e5b50a931a73913b243b11efd75589bd96bf524b17d7",
     "gpcm/main.go": "746dd06152745c84432e72520dd3167aca8f579a49bdd632911f508c8fcc55d9",
     "internal/onlinecpu/engine.go": "101c1eda365fa47d6eeca9fddc9b884c87fb3773914e37568417edf993e92040",
     "internal/onlinecpu/telemetry.go": "a1828be51730497703171bbcda7599e4ea5154cba6b936ab34fbac717a8f9186",
