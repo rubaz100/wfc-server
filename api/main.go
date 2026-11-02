@@ -60,6 +60,7 @@ func RegisterExtendedHandlers(mux *http.ServeMux) {
 	mux.HandleFunc("/api/config", HandleConfig)
 	mux.HandleFunc("/api/preferences", HandlePreferences)
 	mux.HandleFunc("/api/profile", HandleProfile)
+	mux.HandleFunc("/api/penalty", HandlePenaltyReset)
 	mux.HandleFunc("/api/auth/status", HandleAuthStatus)
 	mux.HandleFunc("/api/login", HandleLogin)
 	mux.HandleFunc("/api/logout", HandleLogout)

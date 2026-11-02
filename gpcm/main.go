@@ -55,6 +55,7 @@ type GameSpySession struct {
 	NeedsExploit         bool
 	CPUVersion           uint32
 	KnockdownPoolVersion uint32
+	PenaltyResetVersion  uint32
 
 	ReadBuffer  []byte
 	WriteBuffer string

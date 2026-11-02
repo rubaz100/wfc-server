@@ -12,6 +12,9 @@ import (
 func (g *GameSpySession) handleWWFCReport(command common.GameSpyCommand) {
 	for key, value := range command.OtherValues {
 		switch key {
+		case "wl:penalty_ack":
+			g.handlePenaltyResetReport(value)
+			continue
 		case "wl:race_live", "wl:race_map":
 			g.handleRaceTelemetryReport(key, value)
 			continue

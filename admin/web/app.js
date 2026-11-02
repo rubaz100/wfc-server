@@ -946,6 +946,12 @@ async function profileModal(pid) {
 	let p;
 	try { p = await apiGet("/api/profile", { pid }); }
 	catch (err) { return onError(err); }
+	const isMKW = /^RMC[PEJK]$/.test(p.game_code || "");
+	let penalty;
+	if (isMKW) {
+		try { penalty = await apiGet("/api/penalty", { pid }); }
+		catch (err) { return onError(err); }
+	}
 	const m = openModal(`
 		<div class="modal">
 			<h3>Edit profile</h3>
@@ -959,6 +965,13 @@ async function profileModal(pid) {
 					<textarea id="pf-msg" maxlength="512" placeholder="Shown to only this player on the Nintendo WFC menu when they next connect. Blank = none.">${esc(p.message || "")}</textarea>
 					<span class="hint">Delivered as this player's MOTD (wl:motd) — appears at connect / on the WFC menu, not live mid-race. Takes effect next time they connect.</span>
 				</div>
+				${isMKW ? `<div class="card" style="margin:0">
+					<h4>Matchmaking penalty</h4>
+					<p id="pf-penalty-status">${esc(penaltyResetText(penalty))}</p>
+					<p class="hint">Clear this license's disconnect penalty while keeping progress, ratings and friend code. Finish the current race and return to the Nintendo WFC main menu to apply it. Restart public searching after it is cleared.</p>
+					<button type="button" class="btn btn-sm" id="pf-penalty">Remove penalty</button>
+					<button type="button" class="btn btn-sm" id="pf-penalty-refresh">Refresh status</button>
+				</div>` : ""}
 				<div class="card" style="margin:0"><div class="info-grid">
 					${infoRow("Friend code", fmtFC(p.fc))}
 					${infoRow("Game", p.game_code || "—")}
@@ -971,6 +984,25 @@ async function profileModal(pid) {
 			</form>
 		</div>`);
 	m.querySelector("[data-close]").addEventListener("click", closeModal);
+	if (isMKW) {
+		const status = m.querySelector("#pf-penalty-status");
+		const reset = m.querySelector("#pf-penalty");
+		reset.addEventListener("click", async () => {
+			reset.disabled = true;
+			try {
+				penalty = await apiPost("/api/penalty", { pid: Number(pid) });
+				status.textContent = penaltyResetText(penalty);
+				toast(penalty.state === "cleared" ? "Penalty cleared" : "Penalty removal queued", "good");
+			} catch (err) { onError(err); }
+			finally { reset.disabled = false; }
+		});
+		m.querySelector("#pf-penalty-refresh").addEventListener("click", async () => {
+			try {
+				penalty = await apiGet("/api/penalty", { pid });
+				status.textContent = penaltyResetText(penalty);
+			} catch (err) { onError(err); }
+		});
+	}
 	m.querySelector("#profile-form").addEventListener("submit", async (e) => {
 		e.preventDefault();
 		try {
@@ -986,6 +1018,17 @@ async function profileModal(pid) {
 			if (POLLED.has(state.view)) render();
 		} catch (err) { onError(err); }
 	});
+}
+
+function penaltyResetText(info) {
+	if (info.state === "cleared") return "Penalty cleared and saved by the game. Restart public searching to use it.";
+	if (info.state === "queued") return info.supported
+		? "Queued. Return to the Nintendo WFC main menu, then refresh this status."
+		: "Queued for the next connection using the current PAL game payload.";
+	if (info.state === "failed") return info.result === 1
+		? "Could not match this request to the selected game license. Reconnect that license and try again."
+		: "The game could not confirm that the cleared penalty was saved. Return to the WFC main menu and try again.";
+	return "No penalty reset requested. Removal requires the current PAL game payload.";
 }
 
 function banModal(pid, name, ng) {

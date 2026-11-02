@@ -454,6 +454,14 @@ func (e *Engine) Expire(now time.Time) []Delivery {
 			}
 			continue
 		}
+		if active.KnockoutMode == KnockoutModeRace && active.courseReport != nil {
+			// The course has committed its results, so the old epoch no longer
+			// needs a racing authority heartbeat. Its owner can already be in
+			// SELECT while other consoles leave results. Keep the survivor
+			// roster, pending preparations and final replays for the next plan;
+			// actual owner/group departures still remove them independently.
+			continue
+		}
 		if active.CPUCount == 0 && !active.KnockoutEnabled {
 			continue
 		}
