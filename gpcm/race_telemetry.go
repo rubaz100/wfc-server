@@ -21,14 +21,20 @@ func telemetrySource(room racetelemetry.Room, pid uint32, connection uint64) (ra
 	cpuRelay.Lock()
 	plan, planned := cpuRelay.engine.CommittedPlanForRoom(room.Name, room.GroupID)
 	cpuRelay.Unlock()
-	if planned && plan.Committed && plan.CPUCount > 0 {
+	if planned && plan.Committed {
 		// Plan room identity is reconciled before allowing its frozen owner.
 		cpuRoom, ok := qr2.OnlineCPURoomForProfile(plan.OwnerPID)
 		if ok && cpuRoom.Name == room.Name && cpuRoom.GroupID == room.GroupID {
 			source.CPUStart = plan.HumanCount
 			source.CPUCount = plan.CPUCount
-			if pid == plan.OwnerPID {
-				return source, true
+			if plan.KnockoutEnabled {
+				source.KnockoutMode = plan.KnockoutMode
+				source.KnockoutEliminationCount = plan.KnockoutEliminationCount
+				source.SeriesID = plan.SeriesID
+				source.SeriesRound = plan.SeriesRound
+			}
+			if plan.CPUCount > 0 || plan.KnockoutEnabled {
+				return source, pid == plan.OwnerPID
 			}
 		}
 	}

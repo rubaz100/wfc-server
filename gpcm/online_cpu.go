@@ -30,7 +30,7 @@ func KnockdownPoolAvailable() bool {
 
 func cpuPolicy() onlinecpu.Policy {
 	config := common.GetConfig()
-	return onlinecpu.Policy{Enabled: config.OnlineCPUEnabled, AutoFill: config.OnlineCPUAutoFill, Count: config.OnlineCPUCount, KnockoutEnabled: config.KnockoutEnabled}
+	return onlinecpu.Policy{Enabled: config.OnlineCPUEnabled, AutoFill: config.OnlineCPUAutoFill, Count: config.OnlineCPUCount, KnockoutEnabled: config.KnockoutEnabled, KnockoutMode: config.KnockoutMode, KnockoutEliminationCount: config.KnockoutEliminationCount}
 }
 
 func (g *GameSpySession) acceptOnlineCPUCapability(command common.GameSpyCommand) {
@@ -44,7 +44,7 @@ func (g *GameSpySession) acceptOnlineCPUCapability(command common.GameSpyCommand
 	}
 	g.CPUVersion = onlinecpu.ProtocolVersion
 	g.KnockdownPoolVersion = 0
-	if requested := command.OtherValues["wl:ko_pool_ver"]; requested == "1" || requested == "2" {
+	if requested := command.OtherValues["wl:ko_pool_ver"]; requested == "1" || requested == "2" || requested == "3" {
 		version, _ := strconv.ParseUint(requested, 10, 32)
 		g.KnockdownPoolVersion = uint32(version)
 	}
@@ -89,7 +89,7 @@ func sendOnlineCPUSettings(pid uint32) {
 	mutex.Unlock()
 	// A separate envelope preserves the original CPU settings parser and also
 	// reaches DNS/SBCM clients whose authenticated capability arrives at exlogin.
-	if requested == 1 || requested == 2 {
+	if requested == 1 || requested == 2 || requested == 3 {
 		deliveries = append(deliveries, onlinecpu.Delivery{To: pid, Message: fmt.Sprintf("LKD%d:S:%d", requested, poolVersion)})
 	}
 	deliverOnlineCPU(deliveries)
@@ -127,7 +127,12 @@ func (g *GameSpySession) handleOnlineCPUReport(key, value string) {
 	var value32 uint64
 	var frame []byte
 	var err error
-	if key == "wl:cpu_frame" || key == "wl:ko_event" || key == "wl:cpu_item" {
+	if key == "wl:ko_course" {
+		if len(value) > common.Base64DwcEncoding.EncodedLen(12+12*16) || len(value) < common.Base64DwcEncoding.EncodedLen(12) {
+			return
+		}
+		frame, err = common.Base64DwcEncoding.DecodeString(value)
+	} else if key == "wl:cpu_frame" || key == "wl:ko_event" || key == "wl:cpu_item" {
 		// Reject oversized reports before allocating/decoding attacker input.
 		size := onlinecpu.FrameSize
 		if key == "wl:ko_event" {
@@ -153,6 +158,10 @@ func (g *GameSpySession) handleOnlineCPUReport(key, value string) {
 		deliveries = cpuRelay.engine.Prepare(room, pid, uint32(value32), policy, now)
 	case "wl:cpu_ack":
 		deliveries = cpuRelay.engine.Ack(room, pid, uint32(value32), now)
+	case "wl:cpu_plan":
+		deliveries = cpuRelay.engine.PlanMessages(room, pid, uint32(value32))
+	case "wl:ko_course":
+		deliveries = cpuRelay.engine.CourseResult(room, pid, frame, now)
 	case "wl:cpu_frame":
 		deliveries = cpuRelay.engine.Frame(room, pid, frame, now)
 	case "wl:cpu_item":

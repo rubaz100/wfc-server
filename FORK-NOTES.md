@@ -1,5 +1,15 @@
 # mkwfc fork notes
 
+## Selectable Race Knockout (2026-11-02, 0.3.13)
+
+Persisted mode/count controls retain Round Knockdown and add completed-race
+Race Knockout, eliminating last1/2 active finishers. The server validates full
+course results, carries stable human/CPU placements, freezes CPU count/seed,
+and resets next series on completion or roster/owner/mode/count changes.
+P/T/C metadata recovery and ordered K/F course commits are idempotent. Rules3
+gate new payloads; CPU3/telemetry1 remain. Native spectators carry across
+courses and results wait for the course commit. No tests/browser/races.
+
 ## Continuous Knockdown and source review (2026-11-02, 0.3.12)
 
 Rules/pool capability2 separates continuous Knockdown from older payloads;

@@ -66,10 +66,12 @@ type Config struct {
 
 	// CPU policy for public and private rooms, frozen at the next selection.
 	// Auto-fill uses every vacant racer slot; Count is retained for fixed mode.
-	OnlineCPUEnabled  bool `xml:"onlineCPUEnabled"`
-	OnlineCPUAutoFill bool `xml:"onlineCPUAutoFill,omitempty"`
-	OnlineCPUCount    int  `xml:"onlineCPUCount,omitempty"`
-	KnockoutEnabled   bool `xml:"knockoutEnabled,omitempty"`
+	OnlineCPUEnabled         bool   `xml:"onlineCPUEnabled"`
+	OnlineCPUAutoFill        bool   `xml:"onlineCPUAutoFill,omitempty"`
+	OnlineCPUCount           int    `xml:"onlineCPUCount,omitempty"`
+	KnockoutEnabled          bool   `xml:"knockoutEnabled,omitempty"`
+	KnockoutMode             string `xml:"knockoutMode,omitempty"`
+	KnockoutEliminationCount int    `xml:"knockoutEliminationCount,omitempty"`
 
 	EventReporting EventReportingConfig `xml:"eventReporting"`
 }
@@ -78,6 +80,11 @@ type EventReportingConfig struct {
 	LogToDatabase bool                    `xml:"logToDatabase"`
 	Webhooks      []logging.WebhookConfig `xml:"discord>webhook"`
 }
+
+const (
+	KnockoutModeRound = "round"
+	KnockoutModeRace  = "race"
+)
 
 var (
 	// The regular release ships protocol 3 for PAL retail. Availability also
@@ -109,17 +116,25 @@ func LoadConfig() (Config, error) {
 		return Config{}, err
 	}
 	loaded := Config{
-		AllowDefaultDolphinKeys: true,
-		AllowMultipleDeviceIDs:  "never",
-		ServerName:              "mkwfc",
-		LocalDomain:             "mkwfc.lan",
-		OnlineCPUCount:          4,
+		AllowDefaultDolphinKeys:  true,
+		AllowMultipleDeviceIDs:   "never",
+		ServerName:               "mkwfc",
+		LocalDomain:              "mkwfc.lan",
+		OnlineCPUCount:           4,
+		KnockoutMode:             KnockoutModeRound,
+		KnockoutEliminationCount: 1,
 	}
 	if err := xml.Unmarshal(data, &loaded); err != nil {
 		return Config{}, err
 	}
 	if loaded.OnlineCPUCount < 1 || loaded.OnlineCPUCount > 11 {
 		return Config{}, fmt.Errorf("onlineCPUCount must be between 1 and 11")
+	}
+	if loaded.KnockoutMode != KnockoutModeRound && loaded.KnockoutMode != KnockoutModeRace {
+		return Config{}, fmt.Errorf("knockoutMode must be round or race")
+	}
+	if loaded.KnockoutEliminationCount < 1 || loaded.KnockoutEliminationCount > 2 {
+		return Config{}, fmt.Errorf("knockoutEliminationCount must be 1 or 2")
 	}
 	if loaded.GameSpyAddress == nil {
 		loaded.GameSpyAddress = &loaded.DefaultAddress

@@ -481,19 +481,23 @@ function formatRaceFinish(ms) {
 	if (!Number.isFinite(ms) || ms <= 0) return "—";
 	return `${Math.floor(ms / 60000)}:${String(Math.floor(ms / 1000) % 60).padStart(2, "0")}.${String(Math.floor(ms) % 1000).padStart(3, "0")}`;
 }
-function liveRacerStatus(racer, phase) {
+function liveRacerStatus(racer, phase, knockoutMode) {
 	if (racer.disconnected) return '<span class="tag gray">Disconnected</span>';
-	if (racer.eliminated) return '<span class="tag red">Eliminated</span>';
+	if (racer.eliminated) return `<span class="tag red">${knockoutMode === "race" ? "Out of series" : "Eliminated"}</span>`;
 	if (racer.winner) return '<span class="tag green">Winner</span>';
 	if (racer.finished) return '<span class="tag green">Finished</span>';
 	if (phase === "waiting" || phase === "loading" || phase === "countdown") return '<span class="tag gray">On grid</span>';
 	return '<span class="tag blue">Racing</span>';
 }
+function liveKnockoutModeLabel(race) {
+	if (!race.knockoutEnabled) return "";
+	return race.knockoutMode === "race" ? "Race Knockout" : race.knockoutMode === "round" ? "Round Knockdown" : "Knockout";
+}
 function paintLiveRaces() {
 	if (state.view !== "races" || !$("#live-race-body")) return;
 	const race = selectedLiveRace();
 	const selector = $("#live-room");
-	const options = state.live.races.map((entry) => `<option value="${esc(entry.id)}">${esc(entry.roomName || `Room ${entry.groupId}`)}${entry.knockdownPool ? " · Knockdown" : ""} · ${esc(courseName(entry.courseId))}</option>`).join("") || '<option value="">No race available</option>';
+	const options = state.live.races.map((entry) => `<option value="${esc(entry.id)}">${esc(entry.roomName || `Room ${entry.groupId}`)}${entry.knockdownPool ? " · Knockdown pool" : ""}${entry.knockoutEnabled ? ` · ${liveKnockoutModeLabel(entry)}` : ""} · ${esc(courseName(entry.courseId))}</option>`).join("") || '<option value="">No race available</option>';
 	if (state.live.optionsKey !== options) {
 		selector.innerHTML = options;
 		state.live.optionsKey = options;
@@ -517,16 +521,19 @@ function paintLiveRaces() {
 	const stale = race.stale || age >= 3000;
 	const seen = new Date(Date.now() - age).toLocaleTimeString();
 	const laps = Number.isInteger(race.laps) && race.laps > 0 ? race.laps : 0;
+	const seriesRound = Number.isInteger(race.seriesRound) && race.seriesRound > 0 && race.seriesRound <= 12 ? race.seriesRound : 0;
+	const outCount = [1, 2].includes(race.knockoutEliminationCount) ? race.knockoutEliminationCount : 0;
+	const outLabel = outCount === 2 ? "Up to 2" : "1";
 	const rows = sorted.map((racer) => `<tr class="${racer.eliminated || racer.disconnected ? "racer-inactive" : ""}">
 		<td class="race-place">${Number.isInteger(racer.position) && racer.position > 0 && racer.position <= 12 ? racer.position : "—"}</td>
 		<th scope="row"><span class="racer-identity"><span class="racer-number" style="--racer-color:${racerColor(racer)}">${raceMarkerNumber(racer)}</span><span class="racer-name">${esc(raceRacerName(racer))}</span></span></th>
 		<td><span class="tag ${racer.isCPU ? "gray" : "blue"}">${racer.isCPU ? "CPU" : "Player"}</span></td>
 		<td class="mono">${Number.isInteger(racer.lap) && racer.lap > 0 ? `${laps ? Math.min(racer.lap, laps) : racer.lap}${laps ? ` / ${laps}` : ""}` : "—"}</td>
-		<td>${liveRacerStatus(racer, race.phase)}</td><td class="mono">${racer.finished ? formatRaceFinish(racer.finishMs) : "—"}</td>
+		<td>${liveRacerStatus(racer, race.phase, race.knockoutMode)}</td><td class="mono">${racer.finished ? formatRaceFinish(racer.finishMs) : "—"}</td>
 	</tr>`).join("");
 	$("#live-race-body").innerHTML = `
 		<div class="live-race-heading"><div><span class="live-eyebrow">${esc(race.roomName || `Room ${race.groupId}`)}</span><h2>${esc(courseName(race.courseId))}</h2></div>
-			<div class="live-race-tags"><span class="tag ${stale ? "gray" : "green"}" id="live-phase-tag">${racePhaseLabel(race.phase)}</span><span class="tag yellow${stale ? "" : " hidden"}" id="live-delay-tag">Updates delayed</span>${race.mirror ? '<span class="tag blue">Mirror</span>' : ""}${race.knockdownPool ? '<span class="tag yellow">Knockdown pool</span>' : race.knockoutEnabled ? '<span class="tag yellow">Knockout</span>' : ""}${race.knockoutEnabled && Number.isInteger(race.remaining) ? `<span class="tag blue">${race.remaining} / ${racers.length} remaining</span>` : ""}<span class="tag gray">${racers.filter((racer) => !racer.isCPU).length} players · ${racers.filter((racer) => racer.isCPU).length} CPUs</span>${Number.isFinite(race.elapsedMs) && race.elapsedMs > 0 ? `<span class="tag blue">${formatRaceFinish(race.elapsedMs)}</span>` : ""}</div>
+			<div class="live-race-tags"><span class="tag ${stale ? "gray" : "green"}" id="live-phase-tag">${racePhaseLabel(race.phase)}</span><span class="tag yellow${stale ? "" : " hidden"}" id="live-delay-tag">Updates delayed</span>${race.mirror ? '<span class="tag blue">Mirror</span>' : ""}${race.knockdownPool ? '<span class="tag yellow">Knockdown pool</span>' : ""}${race.knockoutEnabled ? `<span class="tag yellow">${liveKnockoutModeLabel(race)}</span>` : ""}${race.knockoutMode === "race" && seriesRound ? `<span class="tag blue">Series race ${seriesRound}</span>` : ""}${race.knockoutMode === "race" && outCount ? `<span class="tag gray">${outLabel} out after this race</span>` : ""}${race.knockoutEnabled && Number.isInteger(race.remaining) ? `<span class="tag blue">${race.remaining} / ${racers.length} remaining</span>` : ""}<span class="tag gray">${racers.filter((racer) => !racer.isCPU).length} players · ${racers.filter((racer) => racer.isCPU).length} CPUs</span>${Number.isFinite(race.elapsedMs) && race.elapsedMs > 0 ? `<span class="tag blue">${formatRaceFinish(race.elapsedMs)}</span>` : ""}</div>
 		</div>
 		<div class="live-layout">
 			<section class="live-leaderboard" aria-labelledby="live-leaderboard-title"><div class="section-title" id="live-leaderboard-title">Leaderboard</div><div class="table-wrap"><table class="race-table"><caption class="sr-only">${esc(courseName(race.courseId))} leaderboard. Numbered racer markers match the course map.</caption><thead><tr><th scope="col">Place</th><th scope="col">Racer</th><th scope="col">Type</th><th scope="col">Lap</th><th scope="col">Status</th><th scope="col">Finish</th></tr></thead><tbody>${rows || '<tr><td colspan="6" class="empty">Waiting for racer positions.</td></tr>'}</tbody></table></div><p class="hint live-seen">${running ? "Last report" : "Snapshot"}: <span id="live-seen-time">${esc(seen)}</span>. Numbered markers match the map.</p></section>
@@ -742,12 +749,27 @@ async function renderSettings() {
 					<legend>Knockout <span class="tag ${knockoutAvailable ? "warn" : ""}">${knockoutAvailable ? "Experimental" : "Unavailable"}</span></legend>
 					<div class="field switch"><input type="checkbox" id="cf-knockout" ${cfg.knockoutEnabled ? "checked" : ""} ${knockoutAvailable ? "" : "disabled"} aria-describedby="cf-knockout-help"><label for="cf-knockout" style="margin:0">Enable Knockout in private rooms</label></div>
 					<span class="hint" id="cf-knockout-help">Applies to the next agreed private VS race, including CPU racers. The public Knockdown option always runs Knockout in its own matchmaking pool; Worldwide runs normal VS. Requires compatible PAL disc payloads and one local human per console. Multiplayer validation is pending.</span>
+					<div class="field">
+						<label for="cf-knockout-mode">Knockout mode</label>
+						<select id="cf-knockout-mode" ${knockoutAvailable ? "" : "disabled"} aria-describedby="cf-knockout-mode-help">
+							<option value="round" ${sel(cfg.knockoutMode ?? "round", "round")}>Round Knockdown</option>
+								<option value="race" ${sel(cfg.knockoutMode ?? "round", "race")}>Race Knockout</option>
+						</select>
+					</div>
+					<div class="field">
+						<label for="cf-knockout-count">Race Knockout eliminations</label>
+						<select id="cf-knockout-count" ${knockoutAvailable ? "" : "disabled"} aria-describedby="cf-knockout-mode-help">
+							<option value="1" ${sel(cfg.knockoutEliminationCount ?? 1, 1)}>1 racer</option>
+								<option value="2" ${sel(cfg.knockoutEliminationCount ?? 1, 2)}>2 racers</option>
+						</select>
+						<span class="hint" id="cf-knockout-mode-help">Round Knockdown eliminates the last active racer at each leader lap until one remains. Race Knockout eliminates the last 1 or 2 active racers after each completed race; survivors continue into the next race. Applies to the public Knockdown pool and enabled private rooms. Existing races keep their agreed settings; changing mode or room membership starts a new series.</span>
+					</div>
 				</fieldset>
 				<fieldset class="cpu-settings">
 					<legend>Online CPUs <span class="tag ${cpuAvailable ? "warn" : ""}">${cpuAvailable ? "Experimental" : "In development"}</span></legend>
 					<div class="field switch"><input type="checkbox" id="cf-online-cpu" ${cfg.onlineCPUEnabled ? "checked" : ""} ${cpuAvailable ? "" : "disabled"} aria-describedby="cf-online-cpu-help"><label for="cf-online-cpu" style="margin:0">Enable CPU racers when available</label></div>
 					<div class="field switch"><input type="checkbox" id="cf-online-cpu-auto-fill" ${cfg.onlineCPUAutoFill ? "checked" : ""} ${cpuAvailable && cfg.onlineCPUEnabled ? "" : "disabled"} aria-describedby="cf-online-cpu-fill-help"><label for="cf-online-cpu-auto-fill" style="margin:0">Auto-fill empty slots to 12 racers</label></div>
-					<span class="hint" id="cf-online-cpu-fill-help">Real players take priority. For example, 4 real players + 8 CPUs becomes 5 real players + 7 CPUs next race when someone joins. CPUs are added or removed between races; a player cannot take over a CPU mid-race.</span>
+					<span class="hint" id="cf-online-cpu-fill-help">Real players take priority. For example, 4 real players + 8 CPUs becomes 5 real players + 7 CPUs next race when someone joins. A player cannot take over a CPU mid-race. Race Knockout keeps its CPU roster fixed through the series so eliminated CPUs stay out; membership changes start a new series.</span>
 					<div class="field">
 						<label for="cf-online-cpu-count">CPUs to add when auto-fill is off</label>
 						<input type="number" id="cf-online-cpu-count" min="1" max="11" step="1" value="${esc(cfg.onlineCPUCount ?? 4)}" ${cpuAvailable && cfg.onlineCPUEnabled && !cfg.onlineCPUAutoFill ? "" : "disabled"} required aria-describedby="cf-online-cpu-help">
@@ -808,12 +830,23 @@ async function renderSettings() {
 		};
 		$("#cf-online-cpu").addEventListener("change", syncCPUControls);
 		$("#cf-online-cpu-auto-fill").addEventListener("change", syncCPUControls);
+		const syncKnockoutControls = () => {
+			$("#cf-knockout-count").disabled = !knockoutAvailable || $("#cf-knockout-mode").value !== "race";
+		};
+		$("#cf-knockout-mode").addEventListener("change", syncKnockoutControls);
+		syncKnockoutControls();
 		$("#config-form").addEventListener("submit", async (e) => {
 			e.preventDefault();
 			const onlineCPUAutoFill = $("#cf-online-cpu-auto-fill").checked;
 			const onlineCPUCount = Number($("#cf-online-cpu-count").value);
+			const knockoutMode = $("#cf-knockout-mode").value;
+			const knockoutEliminationCount = Number($("#cf-knockout-count").value);
 			if (!onlineCPUAutoFill && (!Number.isInteger(onlineCPUCount) || onlineCPUCount < 1 || onlineCPUCount > 11)) {
 				toast("CPU count must be a whole number from 1 to 11", "bad");
+				return;
+			}
+			if (!["round", "race"].includes(knockoutMode) || ![1, 2].includes(knockoutEliminationCount)) {
+				toast("Choose a Knockout mode and 1 or 2 racers", "bad");
 				return;
 			}
 			try {
@@ -828,6 +861,8 @@ async function renderSettings() {
 					onlineCPUEnabled: $("#cf-online-cpu").checked,
 					onlineCPUAutoFill,
 					knockoutEnabled: $("#cf-knockout").checked,
+					knockoutMode,
+					knockoutEliminationCount,
 					...(onlineCPUAutoFill ? {} : { onlineCPUCount }),
 				});
 				toast("Settings saved to config.xml", "good");

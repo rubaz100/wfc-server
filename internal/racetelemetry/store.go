@@ -44,11 +44,15 @@ func (r Room) Key() string { return fmt.Sprintf("%s/%d/%d", r.Name, r.GroupID, r
 
 // Source is resolved from the authenticated connection and current room/plan.
 type Source struct {
-	Room       Room
-	Reporter   uint32
-	Connection uint64
-	CPUStart   int
-	CPUCount   int
+	Room                     Room
+	Reporter                 uint32
+	Connection               uint64
+	CPUStart                 int
+	CPUCount                 int
+	KnockoutMode             string
+	KnockoutEliminationCount int
+	SeriesID                 uint32
+	SeriesRound              int
 }
 
 type Point struct {
@@ -88,23 +92,27 @@ type Racer struct {
 }
 
 type Race struct {
-	ID                string    `json:"id"`
-	GroupID           uint32    `json:"groupId"`
-	RoomName          string    `json:"roomName"`
-	CourseID          uint8     `json:"courseId"`
-	Phase             string    `json:"phase"`
-	AgeMS             int64     `json:"ageMs"`
-	Stale             bool      `json:"stale"`
-	ReporterProfileID uint32    `json:"reporterProfileId"`
-	ElapsedMS         uint32    `json:"elapsedMs"`
-	Laps              uint8     `json:"laps"`
-	Mirror            bool      `json:"mirror"`
-	KnockoutEnabled   bool      `json:"knockoutEnabled"`
-	KnockdownPool     bool      `json:"knockdownPool"`
-	Remaining         uint8     `json:"remaining"`
-	Seed              uint32    `json:"seed"`
-	Racers            []Racer   `json:"racers"`
-	Map               CourseMap `json:"map"`
+	ID                       string    `json:"id"`
+	GroupID                  uint32    `json:"groupId"`
+	RoomName                 string    `json:"roomName"`
+	CourseID                 uint8     `json:"courseId"`
+	Phase                    string    `json:"phase"`
+	AgeMS                    int64     `json:"ageMs"`
+	Stale                    bool      `json:"stale"`
+	ReporterProfileID        uint32    `json:"reporterProfileId"`
+	ElapsedMS                uint32    `json:"elapsedMs"`
+	Laps                     uint8     `json:"laps"`
+	Mirror                   bool      `json:"mirror"`
+	KnockoutEnabled          bool      `json:"knockoutEnabled"`
+	KnockoutMode             string    `json:"knockoutMode,omitempty"`
+	KnockoutEliminationCount int       `json:"knockoutEliminationCount,omitempty"`
+	SeriesID                 uint32    `json:"seriesId,omitempty"`
+	SeriesRound              int       `json:"seriesRound,omitempty"`
+	KnockdownPool            bool      `json:"knockdownPool"`
+	Remaining                uint8     `json:"remaining"`
+	Seed                     uint32    `json:"seed"`
+	Racers                   []Racer   `json:"racers"`
+	Map                      CourseMap `json:"map"`
 }
 
 type frame struct {
@@ -234,6 +242,10 @@ func (s *Store) AcceptLive(source Source, data []byte, now time.Time) bool {
 	if continuing && (int32(f.sequence-old.frame.sequence) <= 0 || f.phase < old.frame.phase || f.CourseID != old.frame.CourseID || f.Laps != old.frame.Laps || f.Mirror != old.frame.Mirror || f.Seed != old.frame.Seed || f.KnockoutEnabled != old.frame.KnockoutEnabled || len(f.Racers) != len(old.frame.Racers)) {
 		return false
 	}
+	if continuing && (source.KnockoutMode != old.source.KnockoutMode || source.KnockoutEliminationCount != old.source.KnockoutEliminationCount || source.SeriesID != old.source.SeriesID || source.SeriesRound != old.source.SeriesRound) {
+		// A newly prepared plan cannot relabel an older course snapshot.
+		return false
+	}
 	for i := range f.Racers {
 		r := &f.Racers[i]
 		if source.CPUCount > 0 && r.IsCPU != (int(r.ID) >= source.CPUStart && int(r.ID) < source.CPUStart+source.CPUCount) {
@@ -288,6 +300,14 @@ func (s *Store) AcceptLive(source Source, data []byte, now time.Time) bool {
 	}
 	f.RoomName = source.Room.Name
 	f.KnockdownPool = source.Room.KnockdownPool
+	// Mode/series identity comes from the authenticated committed plan. The
+	// observational packet retains protocol 1 and cannot invent these fields.
+	if f.KnockoutEnabled {
+		f.KnockoutMode = source.KnockoutMode
+		f.KnockoutEliminationCount = source.KnockoutEliminationCount
+		f.SeriesID = source.SeriesID
+		f.SeriesRound = source.SeriesRound
+	}
 	f.GroupID = source.Room.GroupID
 	f.ReporterProfileID = source.Reporter
 	old.frame = f

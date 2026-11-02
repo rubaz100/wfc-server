@@ -33,6 +33,8 @@ type ConfigResponseSpec struct {
 	OnlineCPUAvailable          bool   `json:"onlineCPUAvailable"`
 	OnlineCPUScope              string `json:"onlineCPUScope"`
 	KnockoutEnabled             bool   `json:"knockoutEnabled"`
+	KnockoutMode                string `json:"knockoutMode"`
+	KnockoutEliminationCount    int    `json:"knockoutEliminationCount"`
 	KnockoutAvailable           bool   `json:"knockoutAvailable"`
 }
 
@@ -49,6 +51,8 @@ type ConfigUpdateSpec struct {
 	OnlineCPUAutoFill           *bool   `json:"onlineCPUAutoFill"`
 	OnlineCPUCount              *int    `json:"onlineCPUCount"`
 	KnockoutEnabled             *bool   `json:"knockoutEnabled"`
+	KnockoutMode                *string `json:"knockoutMode"`
+	KnockoutEliminationCount    *int    `json:"knockoutEliminationCount"`
 }
 
 // HandleConfig reads (GET) a redacted view of the server config or writes (POST)
@@ -92,6 +96,8 @@ func handleGetConfig(w http.ResponseWriter, r *http.Request) {
 		OnlineCPUAvailable:          gpcm.OnlineCPUAvailable(),
 		OnlineCPUScope:              "all",
 		KnockoutEnabled:             c.KnockoutEnabled,
+		KnockoutMode:                c.KnockoutMode,
+		KnockoutEliminationCount:    c.KnockoutEliminationCount,
 		KnockoutAvailable:           gpcm.KnockdownPoolAvailable(),
 	})
 }
@@ -147,6 +153,20 @@ func handleSetConfig(w http.ResponseWriter, r *http.Request) {
 	if req.KnockoutEnabled != nil {
 		fields["knockoutEnabled"] = boolStr(*req.KnockoutEnabled)
 	}
+	if req.KnockoutMode != nil {
+		if *req.KnockoutMode != common.KnockoutModeRound && *req.KnockoutMode != common.KnockoutModeRace {
+			replyError(w, http.StatusBadRequest, APIErrorInvalidQuery)
+			return
+		}
+		fields["knockoutMode"] = *req.KnockoutMode
+	}
+	if req.KnockoutEliminationCount != nil {
+		if *req.KnockoutEliminationCount < 1 || *req.KnockoutEliminationCount > 2 {
+			replyError(w, http.StatusBadRequest, APIErrorInvalidQuery)
+			return
+		}
+		fields["knockoutEliminationCount"] = strconv.Itoa(*req.KnockoutEliminationCount)
+	}
 	if req.OnlineCPUCount != nil {
 		if *req.OnlineCPUCount < 1 || *req.OnlineCPUCount > 11 {
 			replyError(w, http.StatusBadRequest, APIErrorInvalidQuery)
@@ -170,7 +190,7 @@ func handleSetConfig(w http.ResponseWriter, r *http.Request) {
 	if req.AllowDefaultDolphinKeys != nil {
 		gpcm.SetAllowDefaultDolphinKeys(*req.AllowDefaultDolphinKeys)
 	}
-	if req.OnlineCPUEnabled != nil || req.OnlineCPUCount != nil || req.OnlineCPUAutoFill != nil || req.KnockoutEnabled != nil {
+	if req.OnlineCPUEnabled != nil || req.OnlineCPUCount != nil || req.OnlineCPUAutoFill != nil || req.KnockoutEnabled != nil || req.KnockoutMode != nil || req.KnockoutEliminationCount != nil {
 		gpcm.BroadcastOnlineCPUSettings()
 	}
 

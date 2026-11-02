@@ -23,6 +23,8 @@ var editableConfigTags = map[string]bool{
 	"onlineCPUAutoFill":           true,
 	"onlineCPUCount":              true,
 	"knockoutEnabled":             true,
+	"knockoutMode":                true,
+	"knockoutEliminationCount":    true,
 }
 
 var xmlTextEscaper = strings.NewReplacer("&", "&amp;", "<", "&lt;", ">", "&gt;")
@@ -75,6 +77,17 @@ func ApplyConfigChanges(fields map[string]string) error {
 				return fmt.Errorf("invalid onlineCPUCount: %q", val)
 			}
 			updated.OnlineCPUCount = n
+		case "knockoutMode":
+			if val != KnockoutModeRound && val != KnockoutModeRace {
+				return fmt.Errorf("invalid knockoutMode: %q", val)
+			}
+			updated.KnockoutMode = val
+		case "knockoutEliminationCount":
+			n, err := strconv.Atoi(val)
+			if err != nil || n < 1 || n > 2 {
+				return fmt.Errorf("invalid knockoutEliminationCount: %q", val)
+			}
+			updated.KnockoutEliminationCount = n
 		case "allowMultipleDeviceIDs":
 			switch val {
 			case "never", "always", "SameIPAddress":

@@ -4,7 +4,7 @@ import "strings"
 
 const (
 	KnockdownMatchRegion         = "vs_19279" // Native custom region 0x4B4F.
-	KnockdownPoolProtocolVersion = 2          // Continuous rules and canonical winner completion.
+	KnockdownPoolProtocolVersion = 3          // Round Knockdown and cross-race Knockout series.
 )
 
 func IsPublicMKWMatchType(matchType string) bool {

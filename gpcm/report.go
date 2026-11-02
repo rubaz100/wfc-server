@@ -15,7 +15,7 @@ func (g *GameSpySession) handleWWFCReport(command common.GameSpyCommand) {
 		case "wl:race_live", "wl:race_map":
 			g.handleRaceTelemetryReport(key, value)
 			continue
-		case "wl:cpu_prepare", "wl:cpu_ack", "wl:cpu_frame", "wl:cpu_item", "wl:cpu_ping", "wl:cpu_grid_error", "wl:ko_event":
+		case "wl:cpu_prepare", "wl:cpu_ack", "wl:cpu_plan", "wl:cpu_frame", "wl:cpu_item", "wl:cpu_ping", "wl:cpu_grid_error", "wl:ko_event", "wl:ko_course":
 			g.handleOnlineCPUReport(key, value)
 			continue
 		}
