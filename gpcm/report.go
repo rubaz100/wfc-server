@@ -39,6 +39,15 @@ func (g *GameSpySession) handleWWFCReport(command common.GameSpyCommand) {
 			}
 			logging.Notice(g.ModuleName, "Knockout retained idle local input slot:", aurora.Cyan(slot))
 
+		case "wl:ko_stall_guard":
+			// Informational only: an eliminated local spectator bypassed both
+			// motion watchdogs. This does not mean either timeout had expired.
+			record, err := strconv.ParseUint(value, 10, 16)
+			if g.GameName != "mariokartwii" || err != nil || record>>8 != 3 || record&0xff >= 12 {
+				continue
+			}
+			logging.Notice(g.ModuleName, "Knockout spectator motion watchdogs bypassed for racer:", aurora.Cyan(record&0xff))
+
 		case "wl:bad_packet":
 			profileId, err := strconv.ParseUint(value, 10, 32)
 			if err != nil {

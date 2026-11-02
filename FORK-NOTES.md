@@ -1,5 +1,16 @@
 # mkwfc fork notes
 
+## Spectator motion watchdog correction (2026-11-02, 0.3.11)
+
+The PAL payload now exempts only active eliminated local KO spectators from
+native low-speed/no-progress watchdogs. A deliberately stopped spectator could
+otherwise lose its connection after about a minute, allowing the other console
+to finish early despite remaining CPUs. Other native termination causes remain.
+GPCM accepts bounded `wl:ko_stall_guard=(3<<8)|racerId` as an informational
+diagnostic; it means both checks were bypassed, not that either timer expired.
+The signed bundle is0.3.11; CPU3, telemetry1 and pool1 are unchanged. Source,
+retail assembly and compilation only; no tests or autonomous races.
+
 This is the **mkwfc** fork of [WiiLink24/wfc-server](https://github.com/WiiLink24/wfc-server),
 pinned at upstream commit `f0825bf` and tracked on branch **`mkwfc`**. The `upstream` remote
 points at WiiLink24. Rebase onto upstream with `scripts/rebase-upstream.sh`.
