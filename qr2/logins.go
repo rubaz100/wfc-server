@@ -8,16 +8,17 @@ import (
 )
 
 type LoginInfo struct {
-	ProfileID           uint32
-	GameCode            string
-	InGameName          string
-	ConsoleFriendCode   uint64
-	FriendKeyGame       string
-	GPPublicIP          string
-	NeedsExploit        bool
-	DeviceAuthenticated bool
-	Restricted          bool
-	session             *Session
+	ProfileID            uint32
+	GameCode             string
+	InGameName           string
+	ConsoleFriendCode    uint64
+	FriendKeyGame        string
+	GPPublicIP           string
+	NeedsExploit         bool
+	DeviceAuthenticated  bool
+	Restricted           bool
+	KnockdownPoolVersion uint32
+	session              *Session
 }
 
 var logins = map[uint32]*LoginInfo{}
@@ -49,6 +50,16 @@ func SetDeviceAuthenticated(profileID uint32) {
 		if login.session != nil {
 			login.session.Data["+deviceauth"] = "1"
 		}
+	}
+}
+
+// This capability comes from an authenticated GPCM login/exlogin, never from
+// the client's unauthenticated QR2 key/value advertisement.
+func SetKnockdownPoolVersion(profileID, version uint32) {
+	mutex.Lock()
+	defer mutex.Unlock()
+	if login := logins[profileID]; login != nil && login.DeviceAuthenticated {
+		login.KnockdownPoolVersion = version
 	}
 }
 

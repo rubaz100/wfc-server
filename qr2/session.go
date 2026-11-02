@@ -286,7 +286,17 @@ func GetSessionServers() []map[string]string {
 			continue
 		}
 
-		servers = append(servers, session.Data)
+		data := make(map[string]string, len(session.Data)+1)
+		for key, value := range session.Data {
+			data[key] = value
+		}
+		if group := session.groupPointer; group != nil && group.GameName == "mariokartwii" && common.IsPublicMKWMatchType(group.MatchType) {
+			data["rk"] = group.MKWRegion
+		}
+		if knockdownCompatible(session) {
+			data["+knockdown"] = "1"
+		}
+		servers = append(servers, data)
 	}
 
 	// Remove unreachable sessions

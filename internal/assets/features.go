@@ -12,6 +12,29 @@ var telemetryFeatures struct {
 	protocol int
 }
 
+var knockdownFeatures struct {
+	sync.Once
+	protocol int
+}
+
+// KnockdownPoolProtocolVersion is independent of the existing CPU wire format.
+// Only a bundle carrying the dedicated menu/capability path advertises it.
+func KnockdownPoolProtocolVersion() int {
+	knockdownFeatures.Do(func() {
+		bundle, err := Open()
+		if err != nil || bundle.Manifest.OnlineRaceProtocol != 3 {
+			return
+		}
+		for _, game := range bundle.Manifest.KnockdownPoolPayloads {
+			if game == "RMCPD00" && len(bundle.Files["binary/payload."+game+".bin"]) != 0 {
+				knockdownFeatures.protocol = bundle.Manifest.KnockdownPoolProtocol
+				return
+			}
+		}
+	})
+	return knockdownFeatures.protocol
+}
+
 // RaceTelemetryProtocolVersion reports the live-view producer embedded in the
 // regular payload bundle. It is independent of CPU/Knockout negotiation.
 func RaceTelemetryProtocolVersion() int {

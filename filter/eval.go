@@ -6,6 +6,7 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
+	"wwfc/common"
 )
 
 type expression struct {
@@ -154,16 +155,8 @@ func (e *expression) evalEquals(args []*TreeNode) int64 {
 
 // Operator override
 func (e *expression) evalEqualsRK(value string) int64 {
-	rk := e.context["rk"]
-	// Check and remove regional searches due to the limited player count
-	// China (ID 6) gets a pass because it was never released
-	if len(rk) == 4 && (strings.HasPrefix(rk, "vs_") || strings.HasPrefix(rk, "bt_")) && rk[3] >= '0' && rk[3] < '6' {
-		rk = rk[:2]
-	}
-
-	if len(value) == 4 && (strings.HasPrefix(value, "vs_") || strings.HasPrefix(value, "bt_")) && value[3] >= '0' && value[3] < '6' {
-		value = value[:2]
-	}
+	rk := common.NormalizeMKWMatchRegion(e.context["rk"])
+	value = common.NormalizeMKWMatchRegion(value)
 
 	if rk == value {
 		return 1

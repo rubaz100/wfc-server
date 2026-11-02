@@ -23,7 +23,7 @@ func OnlineCPURoomForProfile(profileID uint32) (onlinecpu.Room, bool) {
 	if err != nil || owner == 0 {
 		return onlinecpu.Room{}, false
 	}
-	room := onlinecpu.Room{Name: group.GroupName, GroupID: group.GroupID, OwnerPID: uint32(owner)}
+	room := onlinecpu.Room{Name: group.GroupName, GroupID: group.GroupID, OwnerPID: uint32(owner), KnockdownPool: group.knockdownPool(), Private: group.MatchType == "2" || group.MatchType == "3"}
 	for session := range group.players {
 		if session.login == nil || !session.Authenticated || !session.login.DeviceAuthenticated {
 			return onlinecpu.Room{}, false
@@ -32,7 +32,7 @@ func OnlineCPURoomForProfile(profileID uint32) (onlinecpu.Room, bool) {
 		if err != nil || count < 1 || count > 2 {
 			return onlinecpu.Room{}, false
 		}
-		room.Members = append(room.Members, onlinecpu.Member{ProfileID: session.login.ProfileID, LocalPlayers: uint8(count)})
+		room.Members = append(room.Members, onlinecpu.Member{ProfileID: session.login.ProfileID, LocalPlayers: uint8(count), KnockdownCompatible: knockdownCompatible(session)})
 	}
 	return room, true
 }

@@ -29,6 +29,8 @@ type Manifest struct {
 	OnlineRacePayloads      []string   `json:"online_race_payloads,omitempty"`
 	RaceTelemetryProtocol   int        `json:"race_telemetry_protocol_version,omitempty"`
 	RaceTelemetryPayloads   []string   `json:"race_telemetry_payloads,omitempty"`
+	KnockdownPoolProtocol   int        `json:"knockdown_pool_protocol_version,omitempty"`
+	KnockdownPoolPayloads   []string   `json:"knockdown_pool_payloads,omitempty"`
 	DevelopmentPublicKeySHA string     `json:"development_public_key_sha256"`
 	DevelopmentPublicKey    string     `json:"development_public_key"`
 	Artifacts               []Artifact `json:"artifacts"`

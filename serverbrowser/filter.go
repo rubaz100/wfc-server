@@ -1,11 +1,53 @@
 package serverbrowser
 
 import (
+	"strings"
+	"wwfc/common"
 	"wwfc/filter"
 	"wwfc/logging"
 
 	"github.com/logrusorgru/aurora/v3"
 )
+
+// A broad/legacy query must not discover the reserved pool through LIKE, OR
+// or an omitted region predicate. The native Knockdown search supplies one
+// mandatory exact rk equality; normal continental equality still normalizes.
+func requiresKnockdownPool(node *filter.TreeNode) bool {
+	children := node.Items()
+	if operator, ok := node.Value.(*filter.OperatorToken); ok {
+		switch strings.ToLower(operator.Operator) {
+		case "=", "==":
+			if len(children) != 2 {
+				return false
+			}
+			for index := 0; index < 2; index++ {
+				key, keyOK := children[index].Value.(*filter.IdentityToken)
+				value, valueOK := children[1-index].Value.(*filter.TextToken)
+				if keyOK && valueOK && key.Name == "rk" && value.Text == common.KnockdownMatchRegion {
+					return true
+				}
+			}
+		case "and", "&&":
+			for _, child := range children {
+				if requiresKnockdownPool(child) {
+					return true
+				}
+			}
+		case "or", "||":
+			if len(children) < 2 {
+				return false
+			}
+			for _, child := range children {
+				if !requiresKnockdownPool(child) {
+					return false
+				}
+			}
+			return true
+		}
+		return false
+	}
+	return len(children) == 1 && requiresKnockdownPool(children[0])
+}
 
 // DWC makes requests in the following formats:
 // Matching ver 03: dwc_mver = %d and dwc_pid != %u and maxplayers = %d and numplayers < %d and dwc_mtype = %d and dwc_hoststate = %u and dwc_suspend = %u and (%s)
@@ -24,6 +66,7 @@ func filterServers(moduleName string, servers []map[string]string, queryGame str
 	}
 
 	var filtered []map[string]string
+	knockdown := queryGame == "mariokartwii" && requiresKnockdownPool(tree)
 
 	for _, server := range servers {
 		if server["gamename"] != queryGame {
@@ -32,6 +75,12 @@ func filterServers(moduleName string, servers []map[string]string, queryGame str
 
 		if server["+deviceauth"] != "1" {
 			continue
+		}
+		if queryGame == "mariokartwii" {
+			serverKnockdown := common.IsPublicMKWMatchType(server["dwc_mtype"]) && server["rk"] == common.KnockdownMatchRegion
+			if serverKnockdown != knockdown || (serverKnockdown && server["+knockdown"] != "1") {
+				continue
+			}
 		}
 
 		if server["dwc_mver"] == "90" && (server["dwc_hoststate"] != "0" && server["dwc_hoststate"] != "2") {

@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"os"
 	"strconv"
-	"strings"
 	"time"
 	"wwfc/common"
 	"wwfc/logging"
@@ -34,6 +33,14 @@ type Group struct {
 var groups = map[string]*Group{}
 
 func processResvOK(moduleName string, matchVersion int, reservation common.MatchCommandDataReservation, resvOK common.MatchCommandDataResvOK, sender, destination *Session) bool {
+	if reason := checkMatchPoolAllowed(destination, sender, reservation.LocalPlayerCount); reason != "ok" {
+		logging.Warn(moduleName, "RESV_OK: match pool admission denied:", reason)
+		return false
+	}
+	if sender.knockdownPool() && (matchVersion != 90 || resvOK.LocalPlayerCount != 1) {
+		logging.Warn(moduleName, "RESV_OK: Knockdown requires one local player and compatible matching")
+		return false
+	}
 	if len(groups) >= 100000 {
 		logging.Error(moduleName, "Hit arbitrary global maximum group count (somehow)")
 		return false
@@ -64,15 +71,7 @@ func processResvOK(moduleName string, matchVersion int, reservation common.Match
 		}
 
 		if group.GameName == "mariokartwii" {
-			rk := sender.Data["rk"]
-
-			// Check and remove regional searches due to the limited player count
-			// China (ID 6) gets a pass because it was never released
-			if len(rk) == 4 && (strings.HasPrefix(rk, "vs_") || strings.HasPrefix(rk, "bt_")) && rk[3] >= '0' && rk[3] < '6' {
-				rk = rk[:2]
-			}
-
-			group.MKWRegion = rk
+			group.MKWRegion = common.NormalizeMKWMatchRegion(sender.Data["rk"])
 		}
 
 		sender.Data["+joinindex"] = "0"
@@ -255,17 +254,23 @@ func ProcessGPStatusUpdate(profileID uint32, senderIP uint64, status string) {
 	}
 
 	if status == "0" || status == "1" || status == "3" || status == "4" {
-		session := sessions[senderIP]
-		if session == nil || session.groupPointer == nil {
+		// UDP matchmaking need not have populated GPCM's cached QR2 address.
+		// Use the authenticated profile's current session, refetched because
+		// sending the exploit above temporarily releases this mutex.
+		currentLogin := logins[profileID]
+		if currentLogin == nil || currentLogin.session == nil || currentLogin.session.groupPointer == nil {
 			return
 		}
 
-		session.removeFromGroup()
+		currentLogin.session.removeFromGroup()
 	}
 }
 
-func checkReservationAllowed(moduleName string, sender, destination *Session, joinType byte) string {
+func checkReservationAllowed(moduleName string, sender, destination *Session, joinType byte, localPlayers uint32) string {
 	common.MaybeUnused(moduleName)
+	if reason := checkMatchPoolAllowed(sender, destination, localPlayers); reason != "ok" {
+		return reason
+	}
 
 	if sender.login == nil || destination.login == nil {
 		return ""
@@ -298,7 +303,7 @@ func checkReservationAllowed(moduleName string, sender, destination *Session, jo
 	return "ok"
 }
 
-func CheckGPReservationAllowed(senderIP uint64, senderPid uint32, destPid uint32, joinType byte) string {
+func CheckGPReservationAllowed(senderIP uint64, senderPid uint32, destPid uint32, joinType byte, localPlayers uint32) string {
 	senderPidStr := strconv.FormatUint(uint64(senderPid), 10)
 	destPidStr := strconv.FormatUint(uint64(destPid), 10)
 
@@ -330,7 +335,7 @@ func CheckGPReservationAllowed(senderIP uint64, senderPid uint32, destPid uint32
 		return ""
 	}
 
-	return checkReservationAllowed(moduleName, from, to, joinType)
+	return checkReservationAllowed(moduleName, from, to, joinType, localPlayers)
 }
 
 func ProcessNATNEGReport(result byte, ip1 string, ip2 string) {

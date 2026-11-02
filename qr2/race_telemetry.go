@@ -15,7 +15,7 @@ func raceTelemetryRoom(group *Group) (racetelemetry.Room, bool) {
 	if err != nil || owner == 0 || uint32(owner) != group.server.login.ProfileID {
 		return racetelemetry.Room{}, false
 	}
-	room := racetelemetry.Room{Name: group.GroupName, GroupID: group.GroupID, Created: group.CreateTime, OwnerPID: uint32(owner), Members: make(map[uint32]racetelemetry.Member)}
+	room := racetelemetry.Room{Name: group.GroupName, GroupID: group.GroupID, Created: group.CreateTime, OwnerPID: uint32(owner), Members: make(map[uint32]racetelemetry.Member), KnockdownPool: group.knockdownPool()}
 	for session := range group.players {
 		if session.login == nil || !session.Authenticated || !session.login.DeviceAuthenticated {
 			continue

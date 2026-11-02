@@ -59,6 +59,7 @@ const COURSES = [
 const courseName = (id) => (id >= 0 && id < COURSES.length ? COURSES[id] : `course ${id}`);
 const CC = { 0: "50cc", 1: "100cc", 2: "150cc", 3: "Mirror" };
 const ccName = (id) => CC[id] || `cc ${id}`;
+const KNOCKDOWN_POOL_REGION = "vs_19279";
 
 /* ---------- API ---------- */
 async function handle(res) {
@@ -313,12 +314,13 @@ async function renderRooms() {
 function roomCard(gr) {
 	const players = Object.values(gr.players || {});
 	const typeTag = gr.type === "private" ? "yellow" : gr.type === "anybody" ? "green" : "gray";
+	const knockdownPool = gr.game === "mariokartwii" && gr.type === "anybody" && gr.rk === KNOCKDOWN_POOL_REGION;
 	return `<div class="room">
 		<div class="room-head">
 			<span class="rid">${esc(gr.id)}</span>
 			<span class="tag ${typeTag}">${esc(gr.type || "?")}</span>
 			<span class="tag blue">${esc(gr.game)}</span>
-			${gr.rk ? `<span class="tag gray">${esc(gr.rk)}</span>` : ""}
+			${gr.rk ? `<span class="tag ${knockdownPool ? "yellow" : "gray"}">${knockdownPool ? "Knockdown pool" : esc(gr.rk)}</span>` : ""}
 			${gr.race ? `<span class="tag blue">🏁 ${esc(courseName(gr.race.course))}</span><span class="tag gray">${esc(ccName(gr.race.cc))} · race ${esc(gr.race.num)}</span>` : ""}
 			<span class="spacer"></span>
 			<span class="tag ${gr.suspend ? "gray" : "green"}">${gr.suspend ? "idle" : "live"}</span>
@@ -490,7 +492,7 @@ function paintLiveRaces() {
 	if (state.view !== "races" || !$("#live-race-body")) return;
 	const race = selectedLiveRace();
 	const selector = $("#live-room");
-	const options = state.live.races.map((entry) => `<option value="${esc(entry.id)}">${esc(entry.roomName || `Room ${entry.groupId}`)} · ${esc(courseName(entry.courseId))}</option>`).join("") || '<option value="">No race available</option>';
+	const options = state.live.races.map((entry) => `<option value="${esc(entry.id)}">${esc(entry.roomName || `Room ${entry.groupId}`)}${entry.knockdownPool ? " · Knockdown" : ""} · ${esc(courseName(entry.courseId))}</option>`).join("") || '<option value="">No race available</option>';
 	if (state.live.optionsKey !== options) {
 		selector.innerHTML = options;
 		state.live.optionsKey = options;
@@ -523,7 +525,7 @@ function paintLiveRaces() {
 	</tr>`).join("");
 	$("#live-race-body").innerHTML = `
 		<div class="live-race-heading"><div><span class="live-eyebrow">${esc(race.roomName || `Room ${race.groupId}`)}</span><h2>${esc(courseName(race.courseId))}</h2></div>
-			<div class="live-race-tags"><span class="tag ${stale ? "gray" : "green"}" id="live-phase-tag">${racePhaseLabel(race.phase)}</span><span class="tag yellow${stale ? "" : " hidden"}" id="live-delay-tag">Updates delayed</span>${race.mirror ? '<span class="tag blue">Mirror</span>' : ""}${race.knockoutEnabled ? '<span class="tag yellow">Knockout</span>' : ""}<span class="tag gray">${racers.filter((racer) => !racer.isCPU).length} players · ${racers.filter((racer) => racer.isCPU).length} CPUs</span>${Number.isFinite(race.elapsedMs) && race.elapsedMs > 0 ? `<span class="tag blue">${formatRaceFinish(race.elapsedMs)}</span>` : ""}</div>
+			<div class="live-race-tags"><span class="tag ${stale ? "gray" : "green"}" id="live-phase-tag">${racePhaseLabel(race.phase)}</span><span class="tag yellow${stale ? "" : " hidden"}" id="live-delay-tag">Updates delayed</span>${race.mirror ? '<span class="tag blue">Mirror</span>' : ""}${race.knockdownPool ? '<span class="tag yellow">Knockdown pool</span>' : race.knockoutEnabled ? '<span class="tag yellow">Knockout</span>' : ""}<span class="tag gray">${racers.filter((racer) => !racer.isCPU).length} players · ${racers.filter((racer) => racer.isCPU).length} CPUs</span>${Number.isFinite(race.elapsedMs) && race.elapsedMs > 0 ? `<span class="tag blue">${formatRaceFinish(race.elapsedMs)}</span>` : ""}</div>
 		</div>
 		<div class="live-layout">
 			<section class="live-leaderboard" aria-labelledby="live-leaderboard-title"><div class="section-title" id="live-leaderboard-title">Leaderboard</div><div class="table-wrap"><table class="race-table"><caption class="sr-only">${esc(courseName(race.courseId))} leaderboard. Numbered racer markers match the course map.</caption><thead><tr><th scope="col">Place</th><th scope="col">Racer</th><th scope="col">Type</th><th scope="col">Lap</th><th scope="col">Status</th><th scope="col">Finish</th></tr></thead><tbody>${rows || '<tr><td colspan="6" class="empty">Waiting for racer positions.</td></tr>'}</tbody></table></div><p class="hint live-seen">${running ? "Last report" : "Snapshot"}: <span id="live-seen-time">${esc(seen)}</span>. Numbered markers match the map.</p></section>
@@ -733,8 +735,8 @@ async function renderSettings() {
 				</div>
 				<fieldset class="cpu-settings">
 					<legend>Knockout <span class="tag ${knockoutAvailable ? "warn" : ""}">${knockoutAvailable ? "Experimental" : "Unavailable"}</span></legend>
-					<div class="field switch"><input type="checkbox" id="cf-knockout" ${cfg.knockoutEnabled ? "checked" : ""} ${knockoutAvailable ? "" : "disabled"} aria-describedby="cf-knockout-help"><label for="cf-knockout" style="margin:0">Knockout mode</label></div>
-					<span class="hint" id="cf-knockout-help">Applies to the next agreed public or private VS race, including CPU racers. Requires compatible PAL disc payloads and one local human per console. Other rooms use normal VS. Multiplayer validation is pending.</span>
+					<div class="field switch"><input type="checkbox" id="cf-knockout" ${cfg.knockoutEnabled ? "checked" : ""} ${knockoutAvailable ? "" : "disabled"} aria-describedby="cf-knockout-help"><label for="cf-knockout" style="margin:0">Enable Knockout in private rooms</label></div>
+					<span class="hint" id="cf-knockout-help">Applies to the next agreed private VS race, including CPU racers. The public Knockdown option always runs Knockout in its own matchmaking pool; Worldwide runs normal VS. Requires compatible PAL disc payloads and one local human per console. Multiplayer validation is pending.</span>
 				</fieldset>
 				<fieldset class="cpu-settings">
 					<legend>Online CPUs <span class="tag ${cpuAvailable ? "warn" : ""}">${cpuAvailable ? "Experimental" : "In development"}</span></legend>

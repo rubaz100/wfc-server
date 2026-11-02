@@ -32,11 +32,12 @@ type Member struct {
 
 // Room is a copied QR2 membership view; it contains no addresses or credentials.
 type Room struct {
-	Name     string
-	GroupID  uint32
-	Created  time.Time
-	OwnerPID uint32
-	Members  map[uint32]Member
+	Name          string
+	GroupID       uint32
+	Created       time.Time
+	OwnerPID      uint32
+	Members       map[uint32]Member
+	KnockdownPool bool
 }
 
 func (r Room) Key() string { return fmt.Sprintf("%s/%d/%d", r.Name, r.GroupID, r.Created.UnixNano()) }
@@ -98,6 +99,7 @@ type Race struct {
 	Laps              uint8     `json:"laps"`
 	Mirror            bool      `json:"mirror"`
 	KnockoutEnabled   bool      `json:"knockoutEnabled"`
+	KnockdownPool     bool      `json:"knockdownPool"`
 	Seed              uint32    `json:"seed"`
 	Racers            []Racer   `json:"racers"`
 	Map               CourseMap `json:"map"`
@@ -271,6 +273,7 @@ func (s *Store) AcceptLive(source Source, data []byte, now time.Time) bool {
 		f.ID = old.frame.ID
 	}
 	f.RoomName = source.Room.Name
+	f.KnockdownPool = source.Room.KnockdownPool
 	f.GroupID = source.Room.GroupID
 	f.ReporterProfileID = source.Reporter
 	old.frame = f

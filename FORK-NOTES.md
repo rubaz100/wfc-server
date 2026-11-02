@@ -187,3 +187,25 @@ text control. It keeps the regional route and existing Knockout setting; no new
 matchmaking pool. CPU/KO protocol3 and telemetry1 remain unchanged. Source,
 retail assets/assembly, syntax and compilation only. Existing six-racer/repeat
 roster logs do not validate auto-fill12, CPU effects or browser/map behavior.
+
+## Dedicated public Knockdown pool (2026-11-02, 0.3.10)
+
+The clarified menu choice now selects public pool `vs_19279` with Knockout
+always enabled. Other public rooms use normal VS; private rooms use the existing
+Knockout setting. CPU fixed/auto-fill policy is common to VS rooms. New pool
+capability1 is independent of CPU3/telemetry1 and is gated by embedded metadata.
+Both authenticated initial login and DNS/exlogin receive readiness responses.
+
+Server listing requires an exact mandatory pool predicate; UDP/GPCM reservation
+and acceptance validate pool, authenticated capability and one-local counts.
+Committed groups retain their identity; incompatible rosters cancel instead of
+falling back. Status cleanup resolves the authenticated current QR2 session for
+mode changes. Non-MKW unrestricted matching keeps its original fast path.
+Room/live API exposes a server-derived pool label and the panel clarifies
+private-only Knockout settings.
+
+The PAL native entry uses the reserved key without changing system/save regions.
+It is 1P-only with explicit unsupported messages and client-side no-fallback
+guards. Source, retail assembly/assets, syntax and compilation only; no tests,
+browser/smoke checks or autonomous races. All new mode behavior needs user
+manual validation, including isolation, fresh login and repeated mode changes.

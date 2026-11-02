@@ -24,19 +24,22 @@ type Policy struct {
 	Enabled         bool
 	Count           int
 	AutoFill        bool
-	KnockoutEnabled bool
+	KnockoutEnabled bool // Private-room policy; the dedicated public pool is always KO.
 }
 
 type Member struct {
-	ProfileID    uint32
-	LocalPlayers uint8
+	ProfileID           uint32
+	LocalPlayers        uint8
+	KnockdownCompatible bool
 }
 
 type Room struct {
-	Name     string
-	GroupID  uint32
-	OwnerPID uint32
-	Members  []Member
+	Name          string
+	GroupID       uint32
+	OwnerPID      uint32
+	Members       []Member
+	KnockdownPool bool
+	Private       bool
 }
 
 type Delivery struct {
@@ -146,10 +149,13 @@ func (e *Engine) Prepare(room Room, profileID, nonce uint32, policy Policy, now 
 			cpuCount = min(policy.Count, MaxPlayers-humanCount)
 		}
 	}
-	knockout := policy.KnockoutEnabled && allCapable && humanCount+cpuCount >= 2
+	knockout := (room.KnockdownPool || (room.Private && policy.KnockoutEnabled)) && allCapable && humanCount+cpuCount >= 2
 	for _, member := range state.room.Members {
 		// Native spectator HUD/camera allocation is currently one local human.
 		knockout = knockout && member.LocalPlayers == 1
+	}
+	if room.KnockdownPool && !knockout {
+		return append(changes, cancel(state)...)
 	}
 	// Every current participant has entered the next selection. Retire the old
 	// epoch before delivering its replacement, never when a waiting human joins
@@ -388,7 +394,7 @@ func (e *Engine) reconcile(room Room) (*roomState, int, []uint32, bool, []Delive
 	ownerPresent := false
 	var capable []uint32
 	var signature strings.Builder
-	fmt.Fprintf(&signature, "%d/%d", room.GroupID, room.OwnerPID)
+	fmt.Fprintf(&signature, "%d/%d/%t/%t", room.GroupID, room.OwnerPID, room.KnockdownPool, room.Private)
 	for i, member := range room.Members {
 		if member.ProfileID == 0 || member.LocalPlayers < 1 || member.LocalPlayers > 2 || (i > 0 && member.ProfileID == room.Members[i-1].ProfileID) {
 			return nil, 0, nil, false, nil, false
@@ -396,7 +402,7 @@ func (e *Engine) reconcile(room Room) (*roomState, int, []uint32, bool, []Delive
 		humanCount += int(member.LocalPlayers)
 		ownerPresent = ownerPresent || member.ProfileID == room.OwnerPID
 		version := e.versions[member.ProfileID]
-		fmt.Fprintf(&signature, "/%d:%d:%d", member.ProfileID, member.LocalPlayers, version)
+		fmt.Fprintf(&signature, "/%d:%d:%d:%t", member.ProfileID, member.LocalPlayers, version, member.KnockdownCompatible)
 		if version == ProtocolVersion {
 			capable = append(capable, member.ProfileID)
 		}
@@ -406,6 +412,18 @@ func (e *Engine) reconcile(room Room) (*roomState, int, []uint32, bool, []Delive
 	}
 	state := e.rooms[room.Name]
 	var changes []Delivery
+	if room.KnockdownPool {
+		compatible := !room.Private && len(capable) == len(room.Members)
+		for _, member := range room.Members {
+			compatible = compatible && member.LocalPlayers == 1 && member.KnockdownCompatible
+		}
+		if !compatible {
+			if state != nil {
+				changes = cancel(state)
+			}
+			return state, humanCount, capable, false, changes, false
+		}
+	}
 	if state == nil {
 		state = &roomState{room: room, signature: signature.String(), prepared: map[uint32]uint32{}}
 		e.rooms[room.Name] = state
@@ -415,6 +433,7 @@ func (e *Engine) reconcile(room Room) (*roomState, int, []uint32, bool, []Delive
 		// can replace already allocated CPU objects in the running race.
 		preserve := state.active != nil && state.active.Committed &&
 			state.room.GroupID == room.GroupID && state.active.OwnerPID == room.OwnerPID &&
+			state.room.KnockdownPool == room.KnockdownPool && state.room.Private == room.Private &&
 			((state.active.CPUCount == 0 && !state.active.KnockoutEnabled) || contains(capable, room.OwnerPID))
 		if !preserve {
 			changes = cancel(state)

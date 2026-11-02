@@ -388,6 +388,12 @@ func (g *GameSpySession) login(command common.GameSpyCommand) {
 		"lt":         g.LoginTicket,
 		"id":         command.OtherValues["id"],
 	}
+	if g.GameName == "mariokartwii" && command.OtherValues["wl:ko_pool_ver"] == "1" {
+		otherValues["wl:ko_pool_ver"] = "0"
+		if g.DeviceAuthenticated && command.OtherValues["wl:cpu_ver"] == "3" && KnockdownPoolAvailable() {
+			otherValues["wl:ko_pool_ver"] = "1"
+		}
+	}
 
 	if g.GameName == "mariokartwii" {
 		// A per-player message (set from the admin panel) takes precedence over

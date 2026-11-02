@@ -316,7 +316,7 @@ func processClientMessage(moduleName string, sender, receiver *Session, message 
 
 	switch cmd {
 	case common.MatchReservation:
-		resvError := checkReservationAllowed(moduleName, sender, receiver, matchData.Reservation.MatchType)
+		resvError := checkReservationAllowed(moduleName, sender, receiver, matchData.Reservation.MatchType, matchData.Reservation.LocalPlayerCount)
 		if resvError != "ok" {
 			if resvError == "restricted" || resvError == "restricted_join" {
 				logging.Error(moduleName, "RESERVATION: Restricted player attempted to join a public match")

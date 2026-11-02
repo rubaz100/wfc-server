@@ -52,8 +52,9 @@ type GameSpySession struct {
 	Reservation    common.MatchCommandData
 	ReservationPID uint32
 
-	NeedsExploit bool
-	CPUVersion   uint32
+	NeedsExploit         bool
+	CPUVersion           uint32
+	KnockdownPoolVersion uint32
 
 	ReadBuffer  []byte
 	WriteBuffer string

@@ -162,7 +162,7 @@ func checkValidRating(moduleName string, payload map[string]string) string {
 }
 
 func isPublicMatchRegion(rk string) (bool, bool) {
-	if rk == "vs" {
+	if rk == "vs" || rk == common.KnockdownMatchRegion {
 		return true, false
 	} else if rk == "bt" {
 		return true, true

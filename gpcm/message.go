@@ -197,7 +197,7 @@ func (g *GameSpySession) bestieMessage(command common.GameSpyCommand) {
 	ok = true
 	switch cmd {
 	case common.MatchReservation:
-		ok = g.mungeMatchReservation(toSession, &msgMatchData, uint32(toProfileId), sameAddress)
+		ok = g.mungeMatchReservation(toSession, &msgMatchData, uint32(toProfileId), sameAddress, resvDenyMsg)
 
 	case common.MatchResvOK, common.MatchResvDeny, common.MatchResvWait:
 		ok = g.mungeMatchReservationResult(cmd, toSession, &msgMatchData, uint32(toProfileId), sameAddress)
@@ -296,7 +296,7 @@ func (g *GameSpySession) bestieMessage(command common.GameSpyCommand) {
 
 }
 
-func (g *GameSpySession) mungeMatchReservation(toSession *GameSpySession, msgMatchData *common.MatchCommandData, toProfileId uint32, sameAddress bool) bool {
+func (g *GameSpySession) mungeMatchReservation(toSession *GameSpySession, msgMatchData *common.MatchCommandData, toProfileId uint32, sameAddress bool, resvDenyMsg string) bool {
 	if g.QR2IP == 0 {
 		logging.Error(g.ModuleName, "Missing QR2 IP")
 		g.replyError(ErrMessage)
@@ -311,12 +311,12 @@ func (g *GameSpySession) mungeMatchReservation(toSession *GameSpySession, msgMat
 		msgMatchData.Reservation.LocalPort = 0
 	}
 
-	if !g.User.Restricted && !toSession.User.Restricted {
+	if g.GameName != "mariokartwii" && !g.User.Restricted && !toSession.User.Restricted {
 		return true
 	}
 
-	// Check with QR2 if the room is public or private
-	resvError := qr2.CheckGPReservationAllowed(g.QR2IP, g.User.ProfileId, uint32(toProfileId), msgMatchData.Reservation.MatchType)
+	// MKW pool admission applies to everyone, including unrestricted friend follows.
+	resvError := qr2.CheckGPReservationAllowed(g.QR2IP, g.User.ProfileId, uint32(toProfileId), msgMatchData.Reservation.MatchType, msgMatchData.Reservation.LocalPlayerCount)
 	if resvError == "ok" {
 		return true
 	}
@@ -335,6 +335,9 @@ func (g *GameSpySession) mungeMatchReservation(toSession *GameSpySession, msgMat
 	}
 
 	logging.Warn(g.ModuleName, "RESERVATION: Not allowed:", resvError)
+	if strings.HasPrefix(resvError, "knockdown_") || resvError == "match_pool_mismatch" {
+		sendMessageToSessionBuffer("1", toProfileId, g, resvDenyMsg)
+	}
 	// Otherwise generic error?
 	return false
 }

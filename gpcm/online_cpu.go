@@ -24,6 +24,10 @@ func OnlineCPUAvailable() bool {
 	return common.OnlineCPUProtocolVersion == "3" && assets.OnlineRaceProtocolVersion() == onlinecpu.ProtocolVersion
 }
 
+func KnockdownPoolAvailable() bool {
+	return OnlineCPUAvailable() && assets.KnockdownPoolProtocolVersion() == common.KnockdownPoolProtocolVersion
+}
+
 func cpuPolicy() onlinecpu.Policy {
 	config := common.GetConfig()
 	return onlinecpu.Policy{Enabled: config.OnlineCPUEnabled, AutoFill: config.OnlineCPUAutoFill, Count: config.OnlineCPUCount, KnockoutEnabled: config.KnockoutEnabled}
@@ -34,9 +38,22 @@ func (g *GameSpySession) acceptOnlineCPUCapability(command common.GameSpyCommand
 		return
 	}
 	mutex.Lock()
+	if sessions[g.User.ProfileId] != g {
+		mutex.Unlock()
+		return
+	}
 	g.CPUVersion = onlinecpu.ProtocolVersion
+	g.KnockdownPoolVersion = 0
+	if command.OtherValues["wl:ko_pool_ver"] == "1" {
+		g.KnockdownPoolVersion = common.KnockdownPoolProtocolVersion
+	}
 	pid := g.User.ProfileId
+	poolVersion := g.KnockdownPoolVersion
 	mutex.Unlock()
+	if !KnockdownPoolAvailable() {
+		poolVersion = 0
+	}
+	qr2.SetKnockdownPoolVersion(pid, poolVersion)
 	cpuRelay.Lock()
 	cpuRelay.engine.Register(pid, onlinecpu.ProtocolVersion)
 	cpuRelay.Unlock()
@@ -58,7 +75,23 @@ func sendOnlineCPUSettings(pid uint32) {
 		// an upper bound; the actual roster always comes from the proposal.
 		count = onlinecpu.MaxPlayers - 1
 	}
-	deliverOnlineCPU([]onlinecpu.Delivery{{To: pid, Message: fmt.Sprintf("LCPU3:S:%d:%d:%d", protocol, enabled, count)}})
+	deliveries := []onlinecpu.Delivery{{To: pid, Message: fmt.Sprintf("LCPU3:S:%d:%d:%d", protocol, enabled, count)}}
+	mutex.Lock()
+	poolVersion := uint32(0)
+	poolRequested := false
+	if session := sessions[pid]; session != nil && session.KnockdownPoolVersion == common.KnockdownPoolProtocolVersion {
+		poolRequested = true
+		if KnockdownPoolAvailable() {
+			poolVersion = common.KnockdownPoolProtocolVersion
+		}
+	}
+	mutex.Unlock()
+	// A separate envelope preserves the original CPU settings parser and also
+	// reaches DNS/SBCM clients whose authenticated capability arrives at exlogin.
+	if poolRequested {
+		deliveries = append(deliveries, onlinecpu.Delivery{To: pid, Message: fmt.Sprintf("LKD1:S:%d", poolVersion)})
+	}
+	deliverOnlineCPU(deliveries)
 }
 
 // BroadcastOnlineCPUSettings advertises policy for the next selection only;
