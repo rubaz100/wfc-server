@@ -20,49 +20,49 @@
     },
     {
       "path": "binary/payload.RMCPD00.bin",
-      "sha256": "c66830b12cd0e4de0ff862b0d97683be26410d084d4b3a59842dad30d413b050",
-      "size": 74864,
+      "sha256": "3185b59fadc28d1cef4cf5c7206418cfb193e7df1f7a1f26b8f346dd19fb8668",
+      "size": 79360,
       "source": "wfc-patcher-wii/dist/binary/payload.RMCPD00.bin"
     },
     {
       "path": "binary/payload.RMCPN0001.bin",
-      "sha256": "311761c8b56205033ccbc52842f94a1162b775443791433cfca6b13afe1ce7f1",
+      "sha256": "f0e3dd10e77f980707fd64ce771d4f22cbec9eb3a4ecea3ef8e603a5d296b5d5",
       "size": 7472,
       "source": "wfc-patcher-wii/dist/binary/payload.RMCPN0001.bin"
     },
     {
       "path": "binary/payload.RMCED00.bin",
-      "sha256": "07264dc99a2e6ee17d02225b841b66771138b22a85c10b70830ffa7a4b7fb0d1",
-      "size": 34156,
+      "sha256": "0df38dd9c49dddba826d2d6733bab40bc83be0115d4f36edb11a9976dc43edd4",
+      "size": 34172,
       "source": "wfc-patcher-wii/dist/binary/payload.RMCED00.bin"
     },
     {
       "path": "binary/payload.RMCEN0001.bin",
-      "sha256": "7bec7ce2d94a0c03866aa7a7d91312dd52f3d1d80e6e2ecf0adc17ddc888f359",
+      "sha256": "83873587279ca1acf98ae81a73f193090debeadb84d9f0c30a7eee004513ae4e",
       "size": 7472,
       "source": "wfc-patcher-wii/dist/binary/payload.RMCEN0001.bin"
     },
     {
       "path": "binary/payload.RMCJD00.bin",
-      "sha256": "306bf4a34a1941e42843e18536342ee758ee6960d3edfacc2feae6d1c8f22cdf",
-      "size": 34156,
+      "sha256": "1e3f90c024d4948ef6201c543e9f31e2d73a6fad5959eb4c777985a0cfc8beed",
+      "size": 34172,
       "source": "wfc-patcher-wii/dist/binary/payload.RMCJD00.bin"
     },
     {
       "path": "binary/payload.RMCJN0001.bin",
-      "sha256": "9a4f48d0ec14a65c724f3c8beb24ee50943bbb8d6176fa5cbfe7bea2487bf746",
+      "sha256": "c9571112bfa8f54f96df4869f79123810d989d349fe378aeee0f3ad47d522b3b",
       "size": 7472,
       "source": "wfc-patcher-wii/dist/binary/payload.RMCJN0001.bin"
     },
     {
       "path": "binary/payload.RMCKD00.bin",
-      "sha256": "2deb0e9ead43c944c73c38af5db2a74c19c67e62186801cd2e6a6beeaeb5c803",
-      "size": 34156,
+      "sha256": "c5729674611d6c0aae8fd649cdb6faf6105f50589eef9c9854d9ade109d32bee",
+      "size": 34172,
       "source": "wfc-patcher-wii/dist/binary/payload.RMCKD00.bin"
     },
     {
       "path": "binary/payload.RMCKN0001.bin",
-      "sha256": "732d9246f10451cee2b9a080e35bb92a98e24bf783a6a2368d0f0c44de24aaef",
+      "sha256": "20e44470a0d92b1aa3120d5f683f922b028d59a5cd5450c22c4c7ccea40dfd43",
       "size": 7472,
       "source": "wfc-patcher-wii/dist/binary/payload.RMCKN0001.bin"
     },
@@ -142,9 +142,9 @@
   "development_public_key": "3f32eb87b97515c960177ccf521836668ee926e8581fff84ca63639f4fa57741e44e5c49b75415f57470bcf4ce5e6678f1e5fe3a9818bd8f9ab752997c800081f3c0cef18bac431844957eb806410ea73e0ec06801698886812ffe5dfb62cf0edf4b1c670f09af3740600634e4c89855f3d0b5fe8c9292e069d9027de51e55001cdf44d6514bd6d3e2bcc0caf84290ee90f7c5ce6dd23d9e266d97e0c0828c63dcd68067c75872d2be2fe4395a6c0d8ab488ef3dd2deda4862da9e5fce3ed9091ec6744d74d26fba83c04b7ee0762c45a832acbc8d65dfdc9d002e8af84b8235bde30491ae3d5be9ef85c2b1d5d4f61d30bccd3e38f85155fc5a1b643f64372ee5e70d6888fc553d695e4dcd18ead3d7414c64829f4fc9970ae9743c94f9827f3e899a4e620e99b94fbbef05181f61c7e1edf870bf81e69c58b49adf30dcbeb3389f53577ca71ee5d911670909c0c6206960dad31d870eed15f0852c68cd18a60704c1f9a4fb745698d746fc31476a0904a3763b268334ded222f23fd4d9bbf0ba3fb31e964404a1c840b20c8a07ea167d57499e6becd3e17729356f82d7b85a2bf31a79f984af7a358526b4fc582f892a97c849b361bdf5dae9879bea5c4c15191f760c016f328073d1c44a87321ed6dfd90a2766b274c1caae16ca176609e937ca20fea2a67b2cd96d9126e661ddbb11187cfb8f43716b6aa20ad3c69894d863b049f5",
   "development_public_key_sha256": "a7abf1ed7b22f2f4092554b5ad2130606897fdb1b73aa238052d0e995dd34cd4",
   "format": 1,
-  "patcher_revision": "0894589d3c6aae2a5282b0a1047d19af95c97c34",
-  "payload_version": "0.3.11",
-  "wfc_server_revision": "888e21f2e62d237e3e2ca51319bb3de732bfeb57",
+  "patcher_revision": "69cd97f945d6813ef5686b3c84640df7d5f53f67",
+  "payload_version": "0.3.12",
+  "wfc_server_revision": "a6aa8aab6d75739f5e970f00622c28f6e7ac286a",
   "online_race_protocol_version": 3,
   "online_race_payloads": [
     "RMCPD00"
@@ -154,19 +154,20 @@
     "payload/import/mkw/net/NetEventHandler.hpp": "10c48ee248f975a7459ac3680d76d24cffec4a4ef3d01779e13ba3468b7a7089",
     "payload/import/mkw/system/KnockoutSpectator.hpp": "f6a7fabbeef32b02788b523f8f59b53a3293944f2818d82898b237c4dccbe6d7",
     "payload/import/mkw/system/KnockoutSpectatorInput.hpp": "cdba37004120b04c0db08c4c5c8dd764651bf2cd3d647a9f0a21fbde7a3fdc1c",
+    "payload/import/mkw/system/RaceConfig.hpp": "3075f0e71fd0fea38980a5a303bcd5b8b37aa5a27a1ca25643dc26a80d9f668b",
     "payload/mkwFeature.cpp": "fa0ea10a489c6a517d743cbe121e539d07e819bbeb7aaa76aa59b9073f0b0ed5",
     "payload/mkwKnockdownMenu.cpp": "027d4b0fc7421e70a09a44753a7d31a4cdbfc21c425cf1ad44ed6025b77ed609",
-    "payload/mkwKnockdownMode.cpp": "4f532917fec9d6531f09d414fd1b0a06b02d71855eb40be5f964a7fba8dd4849",
-    "payload/mkwKnockdownMode.hpp": "568a628e83374c7d9d58d31ebd5cb1c6f73d6ed8097b65a60848de6575fc515e",
-    "payload/mkwKnockout.cpp": "3bfc2eca518b0b8e49d28c13c1ba99d0538c887aef0e23bf08e084b1a1d693d2",
-    "payload/mkwKnockout.hpp": "9d7ca708f4b8f944d79b543f28cc7fc3a6975efa8736a61464186cac301982d3",
-    "payload/mkwKnockoutNotice.hpp": "1d39cd7ccac91c9d063a9a748e9711b88145833a0820479431f40a1020ee4a90",
-    "payload/mkwKnockoutState.hpp": "268cbdceb43f09e0da6d9f6478467c57530f93291f93cbe364408d593f297004",
-    "payload/mkwKnockoutUI.cpp": "e5311dd751923ef5f07331fec2a6b55b8ea6f10f8065a1742986360f029010f8",
-    "payload/mkwOnlineCPU.cpp": "64a1fbfcede9ad4ca7ac7f1ab9b9fed317035af2c6ec5f53fa384c7fcbae3f21",
-    "payload/mkwOnlineCPU.hpp": "b7a6dbec5bfa714130ba5dee28a07c82c2423e5706fe3ca0803ea5074ea17d91",
+    "payload/mkwKnockdownMode.cpp": "80cddf9aafa3731bbabf6b12d757f2d5b20eefa47e52fd2c9493c812bde72a1a",
+    "payload/mkwKnockdownMode.hpp": "7591da21b30e2eb33d9d18f67c01254321b99f5d3b232b1839c7c3557a68cad7",
+    "payload/mkwKnockout.cpp": "6f93d76a8d537b8a0fca098e24f94736d2e8bbbe85bb9299e986a2a8231389b7",
+    "payload/mkwKnockout.hpp": "b048646932f40b69486c36f15bda4a44f7d846d0618ada1a3ad4ecae4b9b9af7",
+    "payload/mkwKnockoutNotice.hpp": "a1a0477bfa60fee483d58fb8991756a081633cf12f03a44de9ad712c1f0c9d4c",
+    "payload/mkwKnockoutState.hpp": "57aaf0a1f8fd9e00599d62491744ab699d4b47d366e81886f5a192820a88202f",
+    "payload/mkwKnockoutUI.cpp": "8ff0b2188057a2b2a33cc969b12b0579774fb5af70a8ce51141f6f4e558e1760",
+    "payload/mkwOnlineCPU.cpp": "43a72e45af1288c65ed204b6bfcb1ff995fbe7e6adcd57ec7e6fffa04980c813",
+    "payload/mkwOnlineCPU.hpp": "10b5fd91d9c79365ae5ad300e50eee107fa8f0d4383cf9ac04e8e3f4f00e88ce",
     "payload/mkwOnlineCPUEvents.cpp": "6b9ce7dc18d00d7ccfc17f7d5c457c2d74049df566df036cffb32ddb21fdc060",
-    "payload/mkwOnlineCPUGrid.cpp": "e936990a44ae158bbfd4bddc6ac542916c023acb06f60e4c3d92a7d9b967cf09",
+    "payload/mkwOnlineCPUGrid.cpp": "c4086cb76c80692f44923b2bb5cd88d4787342c0919030d9fc57e856f0db01f6",
     "payload/mkwOnlineCPUItems.cpp": "2eb4dac322a38b632e0be9228ac52f6cab0dc6ffae2bfca24a17d659e6fa1843",
     "payload/mkwOnlineCPUNative.cpp": "5f6c5e22979ac91feae55c01fe36a0709fcd361866b16b46501ffa0472da255a",
     "payload/mkwOnlineCPUProtocol.hpp": "4ad2cf83ad426121f88ed9657edc78ba45de427134d3c35dcdc2a49028faf312",
@@ -177,10 +178,10 @@
     "payload/wwfc.cpp": "6977a2e933a4302a8c1ad43500b45ce8d854d1cecffa8d99518bcd4e2d9a25eb",
     "payload/wwfcGPReport.cpp": "484b7ac45f5abf699cf70c03e490194828eb7f139cfd2ce7302fad350bab8cab",
     "payload/wwfcGPReport.hpp": "9b753fd54887a7d3c4a8bfc64b93b841b68571644c4bd2cfc3e46be1bf087b0a",
-    "payload/wwfcLogin.cpp": "f84259fedb909b74d6e32a6720ba3961b39bd9bebc81de7cc83b248c93f69cc8",
+    "payload/wwfcLogin.cpp": "47f575ed0da1e00d5a8b68234d9cbc41302a78b310fa90d6ce12e6774c5538fc",
     "payload/wwfcPatch.hpp": "f84917616808e747b69af2e1fff768db11fa93c187f03c092977189b443bebff",
     "payload/wwfcProcess.cpp": "f7745c30ca71fc8d235f0dfc97c458efe6ca38d73d9171763ea610f99006b546",
-    "payload/wwfcVersion.h": "e4db928283117952a4806ddc9b6e36ab9a0323ff4b63fbb665b27274288200fd"
+    "payload/wwfcVersion.h": "50f02faf9a83b41ec282d1d7f02e60ea8961ed2175840391c5940efc7b266caf"
   },
   "native_gameplay_build": {
     "RMCPD00": [
@@ -192,28 +193,28 @@
     "common/config.go": "d9b5b8d611cbc5b893c05d7bfe30e71442fb15a5053c9ce70189dd311b00688b",
     "common/config_write.go": "e38f6b4059e947e0c05ec3ce48d5f721f577ced7ec401ce62568a6d1a59fbb38",
     "common/config_network.go": "9be81301bec545f4b7e83de29beeded6f3733cd95af41efba8066a427a38bf51",
-    "api/config.go": "a8d2cc00933eb2b6db9404b064070b802310da9da8044bec05a4575eecd458c5",
+    "api/config.go": "6bcd0ff131ce52641da14515ea39ea21809cae3c0b8cfcaa4c2e26081a57fab2",
     "api/preferences.go": "e1a8dcadab73f5addf3747a9c53331ab1504934eb9572c68ddc41a395d1699e4",
     "api/main.go": "344424456e24164cf31b9eef84fb3aac80c782e7c61c7ade9067f42ac5413da4",
     "api/races.go": "e10d2e6b0f19fa27727ac1a01baeccbd983c74c6d45b66e40b109a5947549b61",
     "cli/cli.go": "9e6c790b9d9473e768c0af7f77e7624e755b46025e3b4bbbe9dc8514b31615ca",
-    "gpcm/online_cpu.go": "ed4696be5e91d1d61c31dae942a250838665915b011530401e7c6a9f3b0f2da9",
+    "gpcm/online_cpu.go": "d9910e29e8c2323f19a1e585eb838cf1febf2bb6f09426be4f14bdaf1ae8bfc0",
     "gpcm/report.go": "72a8c19d462853413991e5b50a931a73913b243b11efd75589bd96bf524b17d7",
     "gpcm/main.go": "746dd06152745c84432e72520dd3167aca8f579a49bdd632911f508c8fcc55d9",
-    "internal/onlinecpu/engine.go": "101c1eda365fa47d6eeca9fddc9b884c87fb3773914e37568417edf993e92040",
+    "internal/onlinecpu/engine.go": "3c4d19366bfa63a5c7f2a19e306e5b647029cda526af7dc1f155fdb3fc9e1556",
     "internal/onlinecpu/telemetry.go": "a1828be51730497703171bbcda7599e4ea5154cba6b936ab34fbac717a8f9186",
     "gpcm/race_telemetry.go": "7318ad4ba75d5b53e88b3d026abcf645f4f7bd2aeda1d587b6911b7f21099229",
     "qr2/race_telemetry.go": "e79f5927492c83dd4378c637adb917982ab4928e2dc07b9af848ae481aa2c7bc",
     "database/host_manager_preferences.go": "9f02f7f0fb84d21b65d6f1ed6a18ecc587420e717d974eb2b9d3711bc6596392",
-    "admin/web/app.js": "d9e1232331873c8569a63c6c3c7072c27b5b3b68813152b90fa21c79a45bf9a8",
+    "admin/web/app.js": "306d9b866332f6ac6e8d107b6fcdac45ca33e1f6131fe0c9bc2779052998499b",
     "admin/web/style.css": "2b6220ec87ce43f8e6b1b7814977bd6a4ed6afb37fec7e22b69db69a7705dc81",
     "admin/web/index.html": "2e31edc47de3a30f63e33143b6b7f6c666605a3c0b295b36b324b4482443be3f",
     "internal/assets/assets.go": "52e0c0aa6d6c52e8445862fe309e69c2e36115e54d52c54e296a27eb7c208b1a",
     "internal/assets/features.go": "ca2ca4abea1fa4bbff622bc5b8cec4cd02b1f061c7669fe880fba206d3736a7a",
-    "common/match_pool.go": "9df7c2830b25ab42600240342d851b3c1c4a577eea81cecd75d9f2f3eb34a7fb",
+    "common/match_pool.go": "1c879d67113b136e409b773149cd9fea40c92fc825b93a8e0158e5bc281fca91",
     "filter/eval.go": "dbf7375619c18bdd545effcf9c911ebf685cfc8652fc9d6a89e7cb577fe6ce8c",
     "serverbrowser/filter.go": "2dad48a0cb56b6cbf539d2413d779d6c1a7c3814b3daba98fd54fdd7b1ae619c",
-    "gpcm/login.go": "d16ed2c42cebb04b72eddbc52c714d4e68e2931d095f9a1c58b59acc0b909f12",
+    "gpcm/login.go": "94a3304e52293d1928ae739a2f3e9606c932dafd5fffc30468800d580f578b86",
     "gpcm/message.go": "2ca825284789bc06ceaef97fcbad5707333d46c8b2b9c6fb18252c63a73efbce",
     "qr2/group.go": "716f98ed095a62ea5b2139d57874c3f2c8de4bf0c1c00d83f2e4693c6f472a8d",
     "qr2/heartbeat.go": "26333b0c23fce47f4bfd0422649aab43700f666c40f234516340ddbde1402bdc",
@@ -222,13 +223,13 @@
     "qr2/message.go": "092c1e5c41d3874d75a25448f2e3ab50d4a0b8f975a7a578309418b06def1c48",
     "qr2/session.go": "bbd17e104946a7bd81620c765f3d26a40cf8d315a5ea4a9abdc96955b0f61f9d",
     "qr2/online_cpu.go": "feca181993234ce18eaf935ecc003b16a1cd82f403970e430d249d940c70443d",
-    "internal/racetelemetry/store.go": "da618e3392babb9176da88987d9c9597d7d8f53e85ed523e5ae76798bd3b3c84"
+    "internal/racetelemetry/store.go": "dfbe3438ad4e218770d7e71844174d7936a0ae8df4976f5ce0f501d2e18279b9"
   },
   "race_telemetry_protocol_version": 1,
   "race_telemetry_payloads": [
     "RMCPD00"
   ],
-  "knockdown_pool_protocol_version": 1,
+  "knockdown_pool_protocol_version": 2,
   "knockdown_pool_payloads": [
     "RMCPD00"
   ]
