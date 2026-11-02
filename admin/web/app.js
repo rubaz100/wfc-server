@@ -484,6 +484,7 @@ function formatRaceFinish(ms) {
 function liveRacerStatus(racer, phase) {
 	if (racer.disconnected) return '<span class="tag gray">Disconnected</span>';
 	if (racer.eliminated) return '<span class="tag red">Eliminated</span>';
+	if (racer.winner) return '<span class="tag green">Winner</span>';
 	if (racer.finished) return '<span class="tag green">Finished</span>';
 	if (phase === "waiting" || phase === "loading" || phase === "countdown") return '<span class="tag gray">On grid</span>';
 	return '<span class="tag blue">Racing</span>';
@@ -511,7 +512,7 @@ function paintLiveRaces() {
 		return;
 	}
 	const racers = (Array.isArray(race.racers) ? race.racers : []).filter((racer) => racer && Number.isInteger(racer.id) && racer.id >= 0 && racer.id < 12).slice(0, 12);
-	const sorted = [...racers].sort((a, b) => (Number(a.position) > 0 ? a.position : 99) - (Number(b.position) > 0 ? b.position : 99) || (Number(b.progress) || 0) - (Number(a.progress) || 0) || a.id - b.id);
+	const sorted = [...racers].sort((a, b) => Number(!!b.winner) - Number(!!a.winner) || (Number(a.position) > 0 ? a.position : 99) - (Number(b.position) > 0 ? b.position : 99) || (Number(b.progress) || 0) - (Number(a.progress) || 0) || a.id - b.id);
 	const age = liveRaceAge(race);
 	const stale = race.stale || age >= 3000;
 	const seen = new Date(Date.now() - age).toLocaleTimeString();
@@ -525,7 +526,7 @@ function paintLiveRaces() {
 	</tr>`).join("");
 	$("#live-race-body").innerHTML = `
 		<div class="live-race-heading"><div><span class="live-eyebrow">${esc(race.roomName || `Room ${race.groupId}`)}</span><h2>${esc(courseName(race.courseId))}</h2></div>
-			<div class="live-race-tags"><span class="tag ${stale ? "gray" : "green"}" id="live-phase-tag">${racePhaseLabel(race.phase)}</span><span class="tag yellow${stale ? "" : " hidden"}" id="live-delay-tag">Updates delayed</span>${race.mirror ? '<span class="tag blue">Mirror</span>' : ""}${race.knockdownPool ? '<span class="tag yellow">Knockdown pool</span>' : race.knockoutEnabled ? '<span class="tag yellow">Knockout</span>' : ""}<span class="tag gray">${racers.filter((racer) => !racer.isCPU).length} players · ${racers.filter((racer) => racer.isCPU).length} CPUs</span>${Number.isFinite(race.elapsedMs) && race.elapsedMs > 0 ? `<span class="tag blue">${formatRaceFinish(race.elapsedMs)}</span>` : ""}</div>
+			<div class="live-race-tags"><span class="tag ${stale ? "gray" : "green"}" id="live-phase-tag">${racePhaseLabel(race.phase)}</span><span class="tag yellow${stale ? "" : " hidden"}" id="live-delay-tag">Updates delayed</span>${race.mirror ? '<span class="tag blue">Mirror</span>' : ""}${race.knockdownPool ? '<span class="tag yellow">Knockdown pool</span>' : race.knockoutEnabled ? '<span class="tag yellow">Knockout</span>' : ""}${race.knockoutEnabled && Number.isInteger(race.remaining) ? `<span class="tag blue">${race.remaining} / ${racers.length} remaining</span>` : ""}<span class="tag gray">${racers.filter((racer) => !racer.isCPU).length} players · ${racers.filter((racer) => racer.isCPU).length} CPUs</span>${Number.isFinite(race.elapsedMs) && race.elapsedMs > 0 ? `<span class="tag blue">${formatRaceFinish(race.elapsedMs)}</span>` : ""}</div>
 		</div>
 		<div class="live-layout">
 			<section class="live-leaderboard" aria-labelledby="live-leaderboard-title"><div class="section-title" id="live-leaderboard-title">Leaderboard</div><div class="table-wrap"><table class="race-table"><caption class="sr-only">${esc(courseName(race.courseId))} leaderboard. Numbered racer markers match the course map.</caption><thead><tr><th scope="col">Place</th><th scope="col">Racer</th><th scope="col">Type</th><th scope="col">Lap</th><th scope="col">Status</th><th scope="col">Finish</th></tr></thead><tbody>${rows || '<tr><td colspan="6" class="empty">Waiting for racer positions.</td></tr>'}</tbody></table></div><p class="hint live-seen">${running ? "Last report" : "Snapshot"}: <span id="live-seen-time">${esc(seen)}</span>. Numbered markers match the map.</p></section>
@@ -545,9 +546,13 @@ function updateLiveMapHistory(race) {
 		state.live.maps.set(race.id, history);
 	}
 	const points = race.map && race.map.complete && Array.isArray(race.map.points) ? race.map.points.filter(validMapPoint).slice(0, 512) : [];
+	const hasGeometry = points.length > 0;
+	// Once the course arrives, its fixed geometry owns the projection. A past
+	// off-course/outlier position must not shrink the map for the entire race.
+	if (hasGeometry) history.bounds = null;
 	for (const racer of (Array.isArray(race.racers) ? race.racers : []).slice(0, 12)) {
 		if (!racer || !Number.isInteger(racer.id) || racer.id < 0 || racer.id >= 12 || !racer.hasPosition || !validMapPoint(racer)) continue;
-		points.push(racer);
+		if (!hasGeometry) points.push(racer);
 		let trail = history.trails.get(racer.id);
 		if (!trail) { trail = []; history.trails.set(racer.id, trail); }
 		const last = trail[trail.length - 1];

@@ -92,7 +92,7 @@ func handleGetConfig(w http.ResponseWriter, r *http.Request) {
 		OnlineCPUAvailable:          gpcm.OnlineCPUAvailable(),
 		OnlineCPUScope:              "all",
 		KnockoutEnabled:             c.KnockoutEnabled,
-		KnockoutAvailable:           gpcm.OnlineCPUAvailable(),
+		KnockoutAvailable:           gpcm.KnockdownPoolAvailable(),
 	})
 }
 

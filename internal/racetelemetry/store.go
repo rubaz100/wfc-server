@@ -84,6 +84,7 @@ type Racer struct {
 	Disconnected bool    `json:"disconnected"`
 	Eliminated   bool    `json:"eliminated"`
 	FinishMS     uint32  `json:"finishMs"`
+	Winner       bool    `json:"winner"`
 }
 
 type Race struct {
@@ -100,6 +101,7 @@ type Race struct {
 	Mirror            bool      `json:"mirror"`
 	KnockoutEnabled   bool      `json:"knockoutEnabled"`
 	KnockdownPool     bool      `json:"knockdownPool"`
+	Remaining         uint8     `json:"remaining"`
 	Seed              uint32    `json:"seed"`
 	Racers            []Racer   `json:"racers"`
 	Map               CourseMap `json:"map"`
@@ -176,6 +178,18 @@ func decodeLive(data []byte) (frame, bool) {
 			identities[identity] = true
 		}
 		f.Racers[i] = r
+	}
+	if f.KnockoutEnabled {
+		last := -1
+		for i := range f.Racers {
+			if !f.Racers[i].Eliminated && !f.Racers[i].Disconnected {
+				f.Remaining++
+				last = i
+			}
+		}
+		if f.Remaining == 1 && last >= 0 && f.Racers[last].Finished && f.Racers[last].FinishMS > 0 {
+			f.Racers[last].Winner = true
+		}
 	}
 	return f, true
 }

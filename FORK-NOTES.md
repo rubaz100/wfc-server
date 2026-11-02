@@ -1,5 +1,18 @@
 # mkwfc fork notes
 
+## Continuous Knockdown and source review (2026-11-02, 0.3.12)
+
+Rules/pool capability2 separates continuous Knockdown from older payloads;
+private KO also requires fresh rules from every member. CPU transport remains3.
+Kind2 winner events validate owner, epoch/sequence, sole-survivor eliminated/DC
+masks and one canonical time. Exact last-event retries replay their accepted
+relay, and duplicate proposal ACKs recover commit replies. The native payload
+continues laps until the winner rather than ending on the stock course count.
+Live telemetry1 remains observational: remaining/winner fields are derived from
+the accepted snapshot, and complete course geometry fixes map bounds. Settings
+availability requires the rules bundle. No tests/browser/races; source/retail
+inspection and compilation only. See root `docs/release-0.3.12.md`.
+
 ## Spectator motion watchdog correction (2026-11-02, 0.3.11)
 
 The PAL payload now exempts only active eliminated local KO spectators from

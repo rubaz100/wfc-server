@@ -44,13 +44,14 @@ func (g *GameSpySession) acceptOnlineCPUCapability(command common.GameSpyCommand
 	}
 	g.CPUVersion = onlinecpu.ProtocolVersion
 	g.KnockdownPoolVersion = 0
-	if command.OtherValues["wl:ko_pool_ver"] == "1" {
-		g.KnockdownPoolVersion = common.KnockdownPoolProtocolVersion
+	if requested := command.OtherValues["wl:ko_pool_ver"]; requested == "1" || requested == "2" {
+		version, _ := strconv.ParseUint(requested, 10, 32)
+		g.KnockdownPoolVersion = uint32(version)
 	}
 	pid := g.User.ProfileId
 	poolVersion := g.KnockdownPoolVersion
 	mutex.Unlock()
-	if !KnockdownPoolAvailable() {
+	if !KnockdownPoolAvailable() || poolVersion != common.KnockdownPoolProtocolVersion {
 		poolVersion = 0
 	}
 	qr2.SetKnockdownPoolVersion(pid, poolVersion)
@@ -78,18 +79,18 @@ func sendOnlineCPUSettings(pid uint32) {
 	deliveries := []onlinecpu.Delivery{{To: pid, Message: fmt.Sprintf("LCPU3:S:%d:%d:%d", protocol, enabled, count)}}
 	mutex.Lock()
 	poolVersion := uint32(0)
-	poolRequested := false
-	if session := sessions[pid]; session != nil && session.KnockdownPoolVersion == common.KnockdownPoolProtocolVersion {
-		poolRequested = true
-		if KnockdownPoolAvailable() {
-			poolVersion = common.KnockdownPoolProtocolVersion
+	requested := uint32(0)
+	if session := sessions[pid]; session != nil {
+		requested = session.KnockdownPoolVersion
+		if requested == common.KnockdownPoolProtocolVersion && KnockdownPoolAvailable() {
+			poolVersion = 1
 		}
 	}
 	mutex.Unlock()
 	// A separate envelope preserves the original CPU settings parser and also
 	// reaches DNS/SBCM clients whose authenticated capability arrives at exlogin.
-	if poolRequested {
-		deliveries = append(deliveries, onlinecpu.Delivery{To: pid, Message: fmt.Sprintf("LKD1:S:%d", poolVersion)})
+	if requested == 1 || requested == 2 {
+		deliveries = append(deliveries, onlinecpu.Delivery{To: pid, Message: fmt.Sprintf("LKD%d:S:%d", requested, poolVersion)})
 	}
 	deliverOnlineCPU(deliveries)
 }

@@ -3,6 +3,7 @@
 package onlinecpu
 
 import (
+	"bytes"
 	"encoding/binary"
 	"fmt"
 	"math"
@@ -74,6 +75,7 @@ type round struct {
 	knockoutLastPlace uint8
 	knockoutFinalBase uint32
 	knockoutPlaces    uint16
+	knockoutLastEvent []byte
 }
 
 type roomState struct {
@@ -152,7 +154,7 @@ func (e *Engine) Prepare(room Room, profileID, nonce uint32, policy Policy, now 
 	knockout := (room.KnockdownPool || (room.Private && policy.KnockoutEnabled)) && allCapable && humanCount+cpuCount >= 2
 	for _, member := range state.room.Members {
 		// Native spectator HUD/camera allocation is currently one local human.
-		knockout = knockout && member.LocalPlayers == 1
+		knockout = knockout && member.LocalPlayers == 1 && member.KnockdownCompatible
 	}
 	if room.KnockdownPool && !knockout {
 		return append(changes, cancel(state)...)
@@ -184,8 +186,12 @@ func (e *Engine) Prepare(room Room, profileID, nonce uint32, policy Policy, now 
 
 func (e *Engine) Ack(room Room, profileID, epoch uint32, now time.Time) []Delivery {
 	state, _, _, _, changes, ok := e.reconcile(room)
-	if !ok || state.active == nil || state.active.Epoch != epoch || state.active.Committed || !contains(state.active.members, profileID) {
+	if !ok || state.active == nil || state.active.Epoch != epoch || !contains(state.active.members, profileID) {
 		return changes
+	}
+	if state.active.Committed {
+		// A client can retry an ACK after its commit delivery was interrupted.
+		return append(changes, deliver([]uint32{profileID}, fmt.Sprintf("LCPU3:C:%d", epoch))...)
 	}
 	state.active.acks[profileID] = true
 	if len(state.active.acks) != len(state.active.members) {
@@ -257,8 +263,9 @@ func (e *Engine) ItemState(room Room, profileID uint32, item []byte, now time.Ti
 
 // KnockoutEvent accepts only the frozen owner's ordered decision stream.
 // All fields are big endian: epoch:u32 sequence:u32 lap:u16 id:u8 place:u8
-// mask:u16 kind:u8 reserved:u8 finalBaseMs:u32 reserved:u32. Kind 0 eliminates;
-// kind 1 finalizes all retired racers after survivors finish, using one clock.
+// mask:u16 kind:u8 reserved:u8 finalBaseMs:u32 disconnectedMask:u32.
+// Kind 0 eliminates, 1 finalizes naturally finished survivors, and 2 names
+// the sole surviving winner under continuous rules (capability version 2).
 const KnockoutEventSize = 24
 
 func (e *Engine) KnockoutEvent(room Room, profileID uint32, event []byte, now time.Time) []Delivery {
@@ -274,12 +281,24 @@ func (e *Engine) KnockoutEvent(room Room, profileID uint32, event []byte, now ti
 	mask := binary.BigEndian.Uint16(event[12:14])
 	base := binary.BigEndian.Uint32(event[16:20])
 	total := round.HumanCount + round.CPUCount
-	if epoch != round.Epoch || sequence != round.knockoutSequence+1 || event[15] != 0 || binary.BigEndian.Uint32(event[20:24]) != 0 || round.knockoutFinalBase != 0 {
+	if epoch != round.Epoch || event[15] != 0 {
 		return changes
 	}
+	if sequence == round.knockoutSequence && bytes.Equal(event, round.knockoutLastEvent) {
+		// Re-ACK the exact last decision, including final completion. The owner
+		// must be able to recover a missed relay without publishing a new event.
+		for _, pid := range round.members {
+			changes = append(changes, Delivery{To: pid, Knockout: append([]byte(nil), event...)})
+		}
+		return changes
+	}
+	if sequence != round.knockoutSequence+1 || round.knockoutFinalBase != 0 {
+		return changes
+	}
+	disconnected := binary.BigEndian.Uint32(event[20:24])
 	switch kind {
 	case 0:
-		if lap < 2 || lap > 255 || lap <= round.knockoutLap || int(id) >= total || place < 2 || int(place) > total || base != 0 || (round.knockoutLastPlace != 0 && place >= round.knockoutLastPlace) {
+		if disconnected != 0 || lap < 2 || int(lap) > total || lap <= round.knockoutLap || int(id) >= total || place < 2 || int(place) > total || base != 0 || (round.knockoutLastPlace != 0 && place >= round.knockoutLastPlace) {
 			return changes
 		}
 		bit := uint16(1) << id
@@ -290,7 +309,15 @@ func (e *Engine) KnockoutEvent(room Room, profileID uint32, event []byte, now ti
 		round.knockoutLap, round.knockoutMask, round.knockoutLastPlace = lap, mask, place
 		round.knockoutPlaces |= placeBit
 	case 1:
-		if round.knockoutMask == 0 || lap != 0 || id != 0xff || place != 0 || mask != round.knockoutMask || base == 0 || base > 63*60000-1-MaxPlayers*10 {
+		if disconnected != 0 || round.knockoutMask == 0 || lap != 0 || id != 0xff || place != 0 || mask != round.knockoutMask || base == 0 || base > 63*60000-1-MaxPlayers*10 {
+			return changes
+		}
+		round.knockoutFinalBase = base
+	case 2:
+		grid := uint32(1)<<total - 1
+		if lap != 0 || int(id) >= total || place != 1 || mask != round.knockoutMask ||
+			disconnected&^grid != 0 || grid&^(uint32(mask)|disconnected) != uint32(1)<<id ||
+			base == 0 || base > 63*60000-1-MaxPlayers*10 {
 			return changes
 		}
 		round.knockoutFinalBase = base
@@ -298,6 +325,7 @@ func (e *Engine) KnockoutEvent(room Room, profileID uint32, event []byte, now ti
 		return changes
 	}
 	round.knockoutSequence = sequence
+	round.knockoutLastEvent = append([]byte(nil), event...)
 	round.lastAlive = now
 	for _, pid := range round.members {
 		changes = append(changes, Delivery{To: pid, Knockout: append([]byte(nil), event...)})

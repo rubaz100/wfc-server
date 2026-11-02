@@ -388,10 +388,11 @@ func (g *GameSpySession) login(command common.GameSpyCommand) {
 		"lt":         g.LoginTicket,
 		"id":         command.OtherValues["id"],
 	}
-	if g.GameName == "mariokartwii" && command.OtherValues["wl:ko_pool_ver"] == "1" {
+	poolRequest := command.OtherValues["wl:ko_pool_ver"]
+	if g.GameName == "mariokartwii" && (poolRequest == "1" || poolRequest == "2") {
 		otherValues["wl:ko_pool_ver"] = "0"
-		if g.DeviceAuthenticated && command.OtherValues["wl:cpu_ver"] == "3" && KnockdownPoolAvailable() {
-			otherValues["wl:ko_pool_ver"] = "1"
+		if poolRequest == "2" && g.DeviceAuthenticated && command.OtherValues["wl:cpu_ver"] == "3" && KnockdownPoolAvailable() {
+			otherValues["wl:ko_pool_ver"] = "2"
 		}
 	}
 
