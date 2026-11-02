@@ -20,8 +20,8 @@
     },
     {
       "path": "binary/payload.RMCPD00.bin",
-      "sha256": "600837f21afa9a5ca971bf48494e17f80dd2cd28074f46a1ed9c6fc672b2bb71",
-      "size": 91472,
+      "sha256": "0344d2ad7c460c77acfb9ab27b23e91be370a7c2593a17ffc720f67c741b6842",
+      "size": 92160,
       "source": "wfc-patcher-wii/dist/binary/payload.RMCPD00.bin"
     },
     {
@@ -144,7 +144,7 @@
   "format": 1,
   "patcher_revision": "26342dd975093f5c41d8a1d34dcd21c63eb86cdd",
   "payload_version": "0.3.15",
-  "wfc_server_revision": "4e5dec872f6f0b8b56bdad3505c29a76a0f7b0be",
+  "wfc_server_revision": "7bac4ed6cabb0873c6f406476889379c5f7e2ada",
   "online_race_protocol_version": 3,
   "online_race_payloads": [
     "RMCPD00"
@@ -154,7 +154,7 @@
     "payload/import/mkw/net/NetEventHandler.hpp": "10c48ee248f975a7459ac3680d76d24cffec4a4ef3d01779e13ba3468b7a7089",
     "payload/import/mkw/system/KnockoutSpectator.hpp": "f6a7fabbeef32b02788b523f8f59b53a3293944f2818d82898b237c4dccbe6d7",
     "payload/import/mkw/system/KnockoutSpectatorInput.hpp": "cdba37004120b04c0db08c4c5c8dd764651bf2cd3d647a9f0a21fbde7a3fdc1c",
-    "payload/import/mkw/system/RaceConfig.hpp": "3075f0e71fd0fea38980a5a303bcd5b8b37aa5a27a1ca25643dc26a80d9f668b",
+    "payload/import/mkw/system/RaceConfig.hpp": "43467ac42f1df74a47fcfe1d70d9a81c54cde1718bead40f8f99eb68d001164b",
     "payload/mkwFeature.cpp": "fa0ea10a489c6a517d743cbe121e539d07e819bbeb7aaa76aa59b9073f0b0ed5",
     "payload/mkwKnockdownMenu.cpp": "0ae8030b6873c1773136be7e8d67aa9be8da7d168b04a9b32aa604a7ee394234",
     "payload/mkwKnockdownMode.cpp": "80376e63ea796b911ec6c1d8bb2ecf6a9e7b20c06ab91012130a4e2e8578e0d6",
@@ -163,7 +163,7 @@
     "payload/mkwKnockout.hpp": "110282fcd1f7e79d8cbfe8b10cd0d67c73544d8d1798452a7c4c9a4e37b15efd",
     "payload/mkwKnockoutNotice.hpp": "22ace6c69163631dcb83e47a4741c2b1b394f49bdf5d69f1c6e186de35b01b81",
     "payload/mkwKnockoutState.hpp": "cd3d2706f9641e01cec4ae43abfb6174422b5a439ae2e19d0084c25f45e48ed9",
-    "payload/mkwKnockoutUI.cpp": "d5b3826a7ba2a0f2523e93f5bba9899cd93f17c06c86ba74cd484b4b8e8ab91b",
+    "payload/mkwKnockoutUI.cpp": "5e42b387b8252af520ce1891cb0aed3576f772d526d76fa45010775dc95c8e87",
     "payload/mkwOnlineCPU.cpp": "aeb2d0f3a38e66d8d141ec7a08bfa6b3972265abb22ec067513fcfd8ab292b46",
     "payload/mkwOnlineCPU.hpp": "ca50a8f3527261ccae70c4c298dc7ad741747bb9434744cff62715fbc45b3127",
     "payload/mkwOnlineCPUEvents.cpp": "6b9ce7dc18d00d7ccfc17f7d5c457c2d74049df566df036cffb32ddb21fdc060",
@@ -177,12 +177,12 @@
     "payload/mkwRaceTelemetry.hpp": "3c627672a06b500ade204e07458fcc336e0ccf5d100d28668c424edddfc90c1c",
     "payload/mkwSecurity.cpp": "1501f7706adbc38d8fbf12393e332b910c1803c9d6557f14384a9161971d309f",
     "payload/mkwTime.cpp": "c1a5162d3ba6716f27a86aa09a621ae0b1181c9f1d90016f001efd54109c72fb",
-    "payload/wwfc.cpp": "c719b6988efb56227701bec71100602e5fabfd21b2f6b00f4a4260fd41589be4",
+    "payload/wwfc.cpp": "ac6487885800673730498a630034bd41c4f47c245bc842747ea9a2dcae564709",
     "payload/wwfcGPReport.cpp": "484b7ac45f5abf699cf70c03e490194828eb7f139cfd2ce7302fad350bab8cab",
     "payload/wwfcGPReport.hpp": "9b753fd54887a7d3c4a8bfc64b93b841b68571644c4bd2cfc3e46be1bf087b0a",
     "payload/wwfcLogin.cpp": "2d568f2c4135ac19d4ee399161e71748276f5dc70f1b49f53d8310a039471923",
     "payload/wwfcPatch.hpp": "f84917616808e747b69af2e1fff768db11fa93c187f03c092977189b443bebff",
-    "payload/wwfcProcess.cpp": "f7745c30ca71fc8d235f0dfc97c458efe6ca38d73d9171763ea610f99006b546",
+    "payload/wwfcProcess.cpp": "5fcee9377d6fa9a3755dd4395fb4238bdba797ee1d95f3042eca59c3a0effe8d",
     "payload/wwfcVersion.h": "1dcaa7500f6d9d81773ce78ef5cd81652b8dca74df6c429f37027edc33af0f3b"
   },
   "native_gameplay_build": {
