@@ -6,6 +6,8 @@ import (
 	"regexp"
 	"strconv"
 	"sync"
+
+	"wwfc/common"
 )
 
 type Spec struct {
@@ -157,7 +159,7 @@ func ValidateSpec(spec Spec) error {
 	if err != nil || number < 0 || number > 65535 {
 		return fmt.Errorf("socket %q has invalid port %q", spec.Name, port)
 	}
-	if !spec.Unsafe && !ip.IsPrivate() && !ip.IsLoopback() {
+	if !spec.Unsafe && !common.IsLANIPv4(ip) && !ip.IsLoopback() {
 		return fmt.Errorf("socket %q refuses a public or wildcard address", spec.Name)
 	}
 	return nil

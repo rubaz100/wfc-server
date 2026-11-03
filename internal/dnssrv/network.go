@@ -5,6 +5,8 @@ import (
 	"net"
 	"sort"
 	"strconv"
+
+	"wwfc/common"
 )
 
 func ValidateBindAddress(address string, allowUnsafe bool) (string, error) {
@@ -20,7 +22,7 @@ func ValidateBindAddress(address string, allowUnsafe bool) (string, error) {
 	if err != nil || portNumber < 1 || portNumber > 65535 {
 		return "", fmt.Errorf("invalid bind port in %q", address)
 	}
-	if !allowUnsafe && (ip.IsUnspecified() || (!ip.IsPrivate() && !ip.IsLoopback())) {
+	if !allowUnsafe && (ip.IsUnspecified() || (!common.IsLANIPv4(ip) && !ip.IsLoopback())) {
 		return "", fmt.Errorf("refusing public or wildcard bind %q; use a private interface address", address)
 	}
 	return net.JoinHostPort(ip.String(), port), nil
@@ -40,7 +42,7 @@ func lanClient(address net.Addr) bool {
 		}
 		ip = net.ParseIP(host)
 	}
-	return ip != nil && (ip.IsPrivate() || ip.IsLoopback())
+	return ip != nil && (common.IsLANIPv4(ip) || ip.IsLoopback())
 }
 
 func DetectLANAddress() (net.IP, error) {
@@ -57,7 +59,7 @@ func DetectLANAddress() (net.IP, error) {
 	var candidates []net.IP
 	for _, address := range addresses {
 		ipNetwork, ok := address.(*net.IPNet)
-		if !ok || ipNetwork.IP.To4() == nil || !ipNetwork.IP.IsPrivate() {
+		if !ok || ipNetwork.IP.To4() == nil || !common.IsLANIPv4(ipNetwork.IP) {
 			continue
 		}
 		candidates = append(candidates, ipNetwork.IP.To4())
@@ -68,18 +70,18 @@ func DetectLANAddress() (net.IP, error) {
 func SelectLANAddress(candidates []net.IP, preferred net.IP) (net.IP, error) {
 	unique := map[string]net.IP{}
 	for _, candidate := range candidates {
-		if candidate == nil || candidate.To4() == nil || !candidate.IsPrivate() {
+		if candidate == nil || candidate.To4() == nil || !common.IsLANIPv4(candidate) {
 			continue
 		}
 		unique[candidate.To4().String()] = candidate.To4()
 	}
-	if preferred != nil && preferred.To4() != nil && preferred.IsPrivate() {
+	if preferred != nil && preferred.To4() != nil && common.IsLANIPv4(preferred) {
 		if ip, exists := unique[preferred.To4().String()]; exists {
 			return ip, nil
 		}
 	}
 	if len(unique) == 0 {
-		return nil, fmt.Errorf("no private IPv4 LAN address found; use --lan-ip")
+		return nil, fmt.Errorf("no private or hotspot IPv4 LAN address found; use --lan-ip")
 	}
 	if len(unique) > 1 {
 		addresses := make([]string, 0, len(unique))

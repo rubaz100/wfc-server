@@ -16,6 +16,8 @@ import (
 	"os"
 	"path/filepath"
 	"time"
+
+	"wwfc/common"
 )
 
 var (
@@ -105,8 +107,8 @@ func copyNew(src, dst string, mode os.FileMode) error {
 }
 
 func generateModern(paths Paths, domain string, lanIP net.IP, now time.Time) error {
-	if lanIP == nil || lanIP.To4() == nil || !lanIP.IsPrivate() {
-		return fmt.Errorf("certificate LAN address must be a private IPv4 address")
+	if lanIP == nil || !common.IsLANIPv4(lanIP) {
+		return fmt.Errorf("certificate LAN address must be a private or hotspot LAN IPv4 address")
 	}
 	serial, err := rand.Int(rand.Reader, new(big.Int).Lsh(big.NewInt(1), 120))
 	if err != nil {

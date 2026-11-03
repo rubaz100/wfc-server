@@ -1,6 +1,7 @@
 package common
 
 import (
+	"net"
 	"strconv"
 	"strings"
 )
@@ -107,4 +108,24 @@ func IsReservedIP(ip int32) bool {
 	}
 
 	return false
+}
+
+// IsLANIPv4 reports whether ip is an IPv4 address usable as this server's
+// private LAN bind or interface address. It accepts the RFC1918 private ranges
+// and the mobile-tethering link ranges that are locally routable but fall
+// outside RFC1918, so auto-detection and binding work on a phone hotspot.
+func IsLANIPv4(ip net.IP) bool {
+	ip4 := ip.To4()
+	if ip4 == nil {
+		return false
+	}
+	return ip4.IsPrivate() || isTetherLinkIPv4(ip4)
+}
+
+// isTetherLinkIPv4 matches the non-RFC1918 point-to-point ranges handed out by
+// phone tethering. iOS Personal Hotspot and USB tethering assign the host
+// 192.0.0.2 with a 192.0.0.1 gateway from the RFC6890 192.0.0.0/24 block, which
+// net.IP.IsPrivate does not report as private.
+func isTetherLinkIPv4(ip4 net.IP) bool {
+	return ip4[0] == 192 && ip4[1] == 0 && ip4[2] == 0
 }

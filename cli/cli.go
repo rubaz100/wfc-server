@@ -306,7 +306,7 @@ func checkLANAddressLocal(lanAddress string) error {
 		if ip4.String() == lanAddress {
 			return nil
 		}
-		if ip4.IsPrivate() {
+		if common.IsLANIPv4(ip4) {
 			local = append(local, ip4.String())
 		}
 	}

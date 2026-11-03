@@ -110,7 +110,7 @@ func panelURLs(address string) []string {
 		}
 
 		ip4 := ipNet.IP.To4()
-		if ip4 == nil || !ip4.IsPrivate() {
+		if ip4 == nil || !common.IsLANIPv4(ip4) {
 			continue
 		}
 

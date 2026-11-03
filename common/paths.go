@@ -2,6 +2,7 @@ package common
 
 import (
 	"fmt"
+	"net"
 	"os"
 	"path/filepath"
 	"strings"
@@ -96,8 +97,8 @@ func ParsePrivateIPv4(value string) (string, error) {
 			return "", fmt.Errorf("%q is not an IPv4 address", value)
 		}
 	}
-	if octets[0] != 10 && !(octets[0] == 172 && octets[1] >= 16 && octets[1] <= 31) && !(octets[0] == 192 && octets[1] == 168) {
-		return "", fmt.Errorf("%q is not an RFC1918 private IPv4 address", value)
+	if !IsLANIPv4(net.IPv4(byte(octets[0]), byte(octets[1]), byte(octets[2]), byte(octets[3]))) {
+		return "", fmt.Errorf("%q is not a private or hotspot LAN IPv4 address", value)
 	}
 	return fmt.Sprintf("%d.%d.%d.%d", octets[0], octets[1], octets[2], octets[3]), nil
 }

@@ -9,6 +9,8 @@ import (
 	"time"
 
 	"github.com/miekg/dns"
+
+	"wwfc/common"
 )
 
 type Config struct {
@@ -34,8 +36,8 @@ func New(config Config) (*Server, error) {
 		return nil, err
 	}
 	ip := net.ParseIP(config.LANAddress)
-	if ip == nil || ip.To4() == nil || !ip.IsPrivate() {
-		return nil, fmt.Errorf("DNS destination %q is not a private IPv4 address", config.LANAddress)
+	if ip == nil || !common.IsLANIPv4(ip) {
+		return nil, fmt.Errorf("DNS destination %q is not a private or hotspot LAN IPv4 address", config.LANAddress)
 	}
 	domain := strings.ToLower(strings.TrimSuffix(config.LocalDomain, "."))
 	if domain == "" || len(domain) > 63 || !validDNSName(domain) {
