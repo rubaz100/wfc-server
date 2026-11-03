@@ -752,8 +752,8 @@ async function renderSettings() {
 					<legend>Race connections</legend>
 					<div class="field switch"><input type="checkbox" id="cf-disable-inactivity" ${cfg.disableInactivityDisconnect !== false ? "checked" : ""} aria-describedby="cf-disable-inactivity-help"><label for="cf-disable-inactivity" style="margin:0">Disable inactivity disconnects</label></div>
 					<span class="hint" id="cf-disable-inactivity-help">On by default. Updated PAL online VS players stay connected when their input is unchanged or their kart stops moving. Controller loss, network failures and normal race finishing still apply. Saved changes apply to connected compatible clients.</span>
-						<div class="field switch"><input type="checkbox" id="cf-exclude-elim-votes" ${cfg.excludeEliminatedVotes !== false ? "checked" : ""} aria-describedby="cf-exclude-elim-votes-help"><label for="cf-exclude-elim-votes" style="margin:0">Exclude eliminated players from map voting</label></div>
-						<span class="hint" id="cf-exclude-elim-votes-help">On by default. In a Race Knockout series, players who have been eliminated can't influence the next track vote. Applies to connected compatible clients.</span>
+					<div class="field switch"><input type="checkbox" id="cf-exclude-elim-votes" ${cfg.excludeEliminatedVotes !== false ? "checked" : ""} aria-describedby="cf-exclude-elim-votes-help"><label for="cf-exclude-elim-votes" style="margin:0">Exclude eliminated players from map voting</label></div>
+					<span class="hint" id="cf-exclude-elim-votes-help">On by default. In Race Knockout, eliminated players' choices appear as Random and the next course is chosen from surviving players' votes. When only CPUs remain, the course is random. Requires updated compatible players. Saved changes apply to upcoming votes and course decisions.</span>
 				</fieldset>
 				<fieldset class="cpu-settings">
 					<legend>Knockout <span class="tag ${knockoutAvailable ? "warn" : ""}">${knockoutAvailable ? "Experimental" : "Unavailable"}</span></legend>

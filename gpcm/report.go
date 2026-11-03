@@ -44,6 +44,14 @@ func (g *GameSpySession) handleWWFCReport(command common.GameSpyCommand) {
 		case "wl:ko_pos", "wl:ko_eliminate", "wl:ko_apply", "wl:ko_spectate", "wl:ko_result":
 			// Informational client diagnostics; authoritative decisions use wl:ko_event.
 
+		case "wl:vote_mask", "wl:vote_win", "wl:vote_elim", "wl:vote_v0", "wl:vote_v1", "wl:vote_v2", "wl:vote_excluded", "wl:vote_eligible":
+			// Course-selection diagnostics never change server room membership or
+			// the authoritative elimination state.
+			record, err := strconv.ParseUint(value, 10, 32)
+			if g.GameName == "mariokartwii" && err == nil {
+				logging.Info(g.ModuleName, "Course vote:", keyColored, record)
+			}
+
 		case "wl:ko_afk":
 			// Diagnostic only: the native client suppressed its own AFK kick
 			// in a negotiated Knockout race. This never changes server policy.
