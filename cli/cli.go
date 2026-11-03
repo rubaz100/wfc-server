@@ -40,6 +40,7 @@ type options struct {
 	keyPath   string
 	wiiCert   string
 	wiiKey    string
+	appMode   bool
 }
 
 // certSources builds the pre-made certificate import set from the init flags.
@@ -53,6 +54,9 @@ func Main() int {
 	if len(os.Args) > 1 && os.Args[1] == "__bind_helper" {
 		return privbind.HelperMain(os.Args[2:])
 	}
+	if code, handled := maybeElevate(os.Args); handled {
+		return code
+	}
 	if err := runCLI(os.Args[1:], os.Stdout, os.Stderr); err != nil {
 		fmt.Fprintln(os.Stderr, "mkwfc:", err)
 		return 1
@@ -61,9 +65,11 @@ func Main() int {
 }
 
 func runCLI(arguments []string, stdout, stderr io.Writer) error {
-	if len(arguments) == 0 {
-		printUsage(stdout)
-		return nil
+	// A bare launch (a double-click with no arguments) runs the server as an
+	// app: it opens the Host Manager in the browser and, on Linux, elevates.
+	appMode := len(arguments) == 0
+	if appMode {
+		arguments = []string{"run"}
 	}
 	command := arguments[0]
 	if command != "init" && command != "run" && command != "doctor" && command != "repair-certs" {
@@ -80,6 +86,7 @@ func runCLI(arguments []string, stdout, stderr io.Writer) error {
 	flags := flag.NewFlagSet(command, flag.ContinueOnError)
 	flags.SetOutput(stderr)
 	var options options
+	options.appMode = appMode
 	flags.StringVar(&options.dataDir, "data-dir", defaultDirectory, "configuration and data directory")
 	flags.StringVar(&options.lanIP, "lan-ip", "", "override the automatically detected private LAN IPv4 address")
 	flags.StringVar(&options.dnsPort, "dns-port", "", "development DNS port override")
@@ -281,6 +288,14 @@ func runServer(ctx context.Context, result bootstrap.Result, options options, st
 	fmt.Fprintln(stdout, "Dolphin: use the built-in BBA and set its DNS to this address.")
 	fmt.Fprintln(stdout, "Host Manager:", "http://"+config.AdminAddress+"/")
 	fmt.Fprintln(stdout, "Gecko codes for this server's key:", common.DataPath("gecko"))
+	if options.appMode {
+		fmt.Fprintln(stdout, "Opening the Host Manager in your browser... (close this window to stop the server)")
+		adminURL := "http://" + config.AdminAddress + "/"
+		go func() {
+			time.Sleep(1500 * time.Millisecond)
+			openBrowser(adminURL)
+		}()
+	}
 	return server.RunSingle(ctx, config, server.SingleOptions{Catalog: result.Catalog, Sockets: sockets})
 }
 
