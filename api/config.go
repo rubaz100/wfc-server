@@ -37,6 +37,7 @@ type ConfigResponseSpec struct {
 	KnockoutEliminationCount    int    `json:"knockoutEliminationCount"`
 	KnockoutAvailable           bool   `json:"knockoutAvailable"`
 	DisableInactivityDisconnect bool   `json:"disableInactivityDisconnect"`
+	ExcludeEliminatedVotes      bool   `json:"excludeEliminatedVotes"`
 }
 
 type ConfigUpdateSpec struct {
@@ -55,6 +56,7 @@ type ConfigUpdateSpec struct {
 	KnockoutMode                *string `json:"knockoutMode"`
 	KnockoutEliminationCount    *int    `json:"knockoutEliminationCount"`
 	DisableInactivityDisconnect *bool   `json:"disableInactivityDisconnect"`
+	ExcludeEliminatedVotes      *bool   `json:"excludeEliminatedVotes"`
 }
 
 // HandleConfig reads (GET) a redacted view of the server config or writes (POST)
@@ -102,6 +104,7 @@ func handleGetConfig(w http.ResponseWriter, r *http.Request) {
 		KnockoutEliminationCount:    c.KnockoutEliminationCount,
 		KnockoutAvailable:           gpcm.KnockdownPoolAvailable(),
 		DisableInactivityDisconnect: c.DisableInactivityDisconnect,
+		ExcludeEliminatedVotes:      c.ExcludeEliminatedVotes,
 	})
 }
 
@@ -159,6 +162,9 @@ func handleSetConfig(w http.ResponseWriter, r *http.Request) {
 	if req.DisableInactivityDisconnect != nil {
 		fields["disableInactivityDisconnect"] = boolStr(*req.DisableInactivityDisconnect)
 	}
+	if req.ExcludeEliminatedVotes != nil {
+		fields["excludeEliminatedVotes"] = boolStr(*req.ExcludeEliminatedVotes)
+	}
 	if req.KnockoutMode != nil {
 		if *req.KnockoutMode != common.KnockoutModeRound && *req.KnockoutMode != common.KnockoutModeRace {
 			replyError(w, http.StatusBadRequest, APIErrorInvalidQuery)
@@ -196,7 +202,7 @@ func handleSetConfig(w http.ResponseWriter, r *http.Request) {
 	if req.AllowDefaultDolphinKeys != nil {
 		gpcm.SetAllowDefaultDolphinKeys(*req.AllowDefaultDolphinKeys)
 	}
-	if req.DisableInactivityDisconnect != nil {
+	if req.DisableInactivityDisconnect != nil || req.ExcludeEliminatedVotes != nil {
 		gpcm.BroadcastInactivitySettings()
 	}
 	if req.OnlineCPUEnabled != nil || req.OnlineCPUCount != nil || req.OnlineCPUAutoFill != nil || req.KnockoutEnabled != nil || req.KnockoutMode != nil || req.KnockoutEliminationCount != nil {

@@ -43,6 +43,16 @@ func sendInactivitySettings(pid uint32) {
 	if err := common.SendPacket(ServerName, index, []byte(packet)); err != nil {
 		logging.Warn("GPCM:inactivity", "Policy delivery failed:", err)
 	}
+	evValue := "0"
+	if common.GetConfig().ExcludeEliminatedVotes {
+		evValue = "1"
+	}
+	evPacket := common.CreateGameSpyMessage(common.GameSpyCommand{Command: "bm", CommandValue: "1", OtherValues: map[string]string{
+		"f": strconv.FormatUint(uint64(pid), 10), "msg": "LEV1:S:" + evValue,
+	}})
+	if err := common.SendPacket(ServerName, index, []byte(evPacket)); err != nil {
+		logging.Warn("GPCM:inactivity", "Voting policy delivery failed:", err)
+	}
 }
 
 // Runtime changes apply to authenticated capable clients immediately, even

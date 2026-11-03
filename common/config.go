@@ -75,6 +75,9 @@ type Config struct {
 	// Disable only idle/no-progress disconnects on negotiated PAL online VS.
 	// Keep false explicit in serialized XML: a missing tag defaults to true.
 	DisableInactivityDisconnect bool `xml:"disableInactivityDisconnect"`
+	// Exclude eliminated Race Knockout spectators from the next-track vote;
+	// a missing tag defaults to true.
+	ExcludeEliminatedVotes bool `xml:"excludeEliminatedVotes"`
 
 	EventReporting EventReportingConfig `xml:"eventReporting"`
 }
@@ -127,6 +130,7 @@ func LoadConfig() (Config, error) {
 		KnockoutMode:                KnockoutModeRound,
 		KnockoutEliminationCount:    1,
 		DisableInactivityDisconnect: true,
+		ExcludeEliminatedVotes:      true,
 	}
 	if err := xml.Unmarshal(data, &loaded); err != nil {
 		return Config{}, err

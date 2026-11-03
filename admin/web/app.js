@@ -752,6 +752,8 @@ async function renderSettings() {
 					<legend>Race connections</legend>
 					<div class="field switch"><input type="checkbox" id="cf-disable-inactivity" ${cfg.disableInactivityDisconnect !== false ? "checked" : ""} aria-describedby="cf-disable-inactivity-help"><label for="cf-disable-inactivity" style="margin:0">Disable inactivity disconnects</label></div>
 					<span class="hint" id="cf-disable-inactivity-help">On by default. Updated PAL online VS players stay connected when their input is unchanged or their kart stops moving. Controller loss, network failures and normal race finishing still apply. Saved changes apply to connected compatible clients.</span>
+						<div class="field switch"><input type="checkbox" id="cf-exclude-elim-votes" ${cfg.excludeEliminatedVotes !== false ? "checked" : ""} aria-describedby="cf-exclude-elim-votes-help"><label for="cf-exclude-elim-votes" style="margin:0">Exclude eliminated players from map voting</label></div>
+						<span class="hint" id="cf-exclude-elim-votes-help">On by default. In a Race Knockout series, players who have been eliminated can't influence the next track vote. Applies to connected compatible clients.</span>
 				</fieldset>
 				<fieldset class="cpu-settings">
 					<legend>Knockout <span class="tag ${knockoutAvailable ? "warn" : ""}">${knockoutAvailable ? "Experimental" : "Unavailable"}</span></legend>
@@ -867,6 +869,7 @@ async function renderSettings() {
 					enableHttpsExploitDS: $("#cf-expds").checked,
 					logLevel: parseInt($("#cf-log").value, 10),
 					disableInactivityDisconnect: $("#cf-disable-inactivity").checked,
+					excludeEliminatedVotes: $("#cf-exclude-elim-votes").checked,
 					onlineCPUEnabled: $("#cf-online-cpu").checked,
 					onlineCPUAutoFill,
 					knockoutEnabled: $("#cf-knockout").checked,

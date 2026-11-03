@@ -73,6 +73,8 @@ func ApplyConfigChanges(fields map[string]string) error {
 				updated.KnockoutEnabled = b
 			case "disableInactivityDisconnect":
 				updated.DisableInactivityDisconnect = b
+			case "excludeEliminatedVotes":
+				updated.ExcludeEliminatedVotes = b
 			}
 		case "onlineCPUCount":
 			n, err := strconv.Atoi(val)

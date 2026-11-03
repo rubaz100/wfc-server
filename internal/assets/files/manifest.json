@@ -20,8 +20,8 @@
     },
     {
       "path": "binary/payload.RMCPD00.bin",
-      "sha256": "e6ed0ce7a09b8ce0694fdaf5fa37e0d6a453f929debf69359996325ba76cd4c9",
-      "size": 97028,
+      "sha256": "b9cb956dcbc993786d34a951c949f4cb63ae4f48c75a1dd392df38a87449cba0",
+      "size": 97540,
       "source": "wfc-patcher-wii/dist/binary/payload.RMCPD00.bin"
     },
     {
@@ -32,8 +32,8 @@
     },
     {
       "path": "binary/payload.RMCED00.bin",
-      "sha256": "475e7cc6512cfc2775a18fd0b2cb8633a2dd5d954c188ee886e577da0d95e1a0",
-      "size": 34728,
+      "sha256": "4baf5cb3c3a4b6fcb156b2b9d9555ff799d6f627178e23d7151a5b9c32dc3991",
+      "size": 34816,
       "source": "wfc-patcher-wii/dist/binary/payload.RMCED00.bin"
     },
     {
@@ -44,8 +44,8 @@
     },
     {
       "path": "binary/payload.RMCJD00.bin",
-      "sha256": "cb11be320f7355690fbbd8cb4905868fbd3c0538a7b567680233582bc6366039",
-      "size": 34728,
+      "sha256": "61e1f73fb92fcb19be5675faef052ec41db86df633d3ffb73251565ea8cccce3",
+      "size": 34816,
       "source": "wfc-patcher-wii/dist/binary/payload.RMCJD00.bin"
     },
     {
@@ -56,8 +56,8 @@
     },
     {
       "path": "binary/payload.RMCKD00.bin",
-      "sha256": "60b43a4fc9d6ea75370383593326d5a9bb3e94360186fe8eb9108974f1928827",
-      "size": 34728,
+      "sha256": "81be005ceedb7d59e0a4fa5a9c407bba5863b308991b5b64e9480cb81b36ca6e",
+      "size": 34816,
       "source": "wfc-patcher-wii/dist/binary/payload.RMCKD00.bin"
     },
     {
@@ -142,9 +142,9 @@
   "development_public_key": "3f32eb87b97515c960177ccf521836668ee926e8581fff84ca63639f4fa57741e44e5c49b75415f57470bcf4ce5e6678f1e5fe3a9818bd8f9ab752997c800081f3c0cef18bac431844957eb806410ea73e0ec06801698886812ffe5dfb62cf0edf4b1c670f09af3740600634e4c89855f3d0b5fe8c9292e069d9027de51e55001cdf44d6514bd6d3e2bcc0caf84290ee90f7c5ce6dd23d9e266d97e0c0828c63dcd68067c75872d2be2fe4395a6c0d8ab488ef3dd2deda4862da9e5fce3ed9091ec6744d74d26fba83c04b7ee0762c45a832acbc8d65dfdc9d002e8af84b8235bde30491ae3d5be9ef85c2b1d5d4f61d30bccd3e38f85155fc5a1b643f64372ee5e70d6888fc553d695e4dcd18ead3d7414c64829f4fc9970ae9743c94f9827f3e899a4e620e99b94fbbef05181f61c7e1edf870bf81e69c58b49adf30dcbeb3389f53577ca71ee5d911670909c0c6206960dad31d870eed15f0852c68cd18a60704c1f9a4fb745698d746fc31476a0904a3763b268334ded222f23fd4d9bbf0ba3fb31e964404a1c840b20c8a07ea167d57499e6becd3e17729356f82d7b85a2bf31a79f984af7a358526b4fc582f892a97c849b361bdf5dae9879bea5c4c15191f760c016f328073d1c44a87321ed6dfd90a2766b274c1caae16ca176609e937ca20fea2a67b2cd96d9126e661ddbb11187cfb8f43716b6aa20ad3c69894d863b049f5",
   "development_public_key_sha256": "a7abf1ed7b22f2f4092554b5ad2130606897fdb1b73aa238052d0e995dd34cd4",
   "format": 1,
-  "patcher_revision": "fe9f69d4af68697ede6d1e13249e10fb6a16451e",
+  "patcher_revision": "ab0d1856aa67d86c2359e5aa78af25e2e15ec7ab",
   "payload_version": "0.3.17",
-  "wfc_server_revision": "5768b8730a988f37766af289e818fb63fd36449d",
+  "wfc_server_revision": "8b975496baad766267d851655da4ecfe5d883186",
   "online_race_protocol_version": 3,
   "online_race_payloads": [
     "RMCPD00"
@@ -155,19 +155,19 @@
     "payload/import/mkw/system/KnockoutSpectator.hpp": "f6a7fabbeef32b02788b523f8f59b53a3293944f2818d82898b237c4dccbe6d7",
     "payload/import/mkw/system/KnockoutSpectatorInput.hpp": "cdba37004120b04c0db08c4c5c8dd764651bf2cd3d647a9f0a21fbde7a3fdc1c",
     "payload/import/mkw/system/RaceConfig.hpp": "43467ac42f1df74a47fcfe1d70d9a81c54cde1718bead40f8f99eb68d001164b",
-    "payload/mkwFeature.cpp": "2d956b9aa569c74e1f3d08cf8db1b2b648c312d1d94083bed29cf0beaa162647",
+    "payload/mkwFeature.cpp": "1c589a1b930a4cfea9ba28abbd522921ba917809c734cb5769624eee6141e3d7",
     "payload/mkwInactivity.cpp": "09d7f4a1e9af786100acbd57e0a916dd94016cd863b4f0b0d2366145593c13a6",
     "payload/mkwInactivity.hpp": "129f384a2edaabfb7266769aec0dcb5a168941ba1ac80a382e94d73b6f368e2a",
     "payload/mkwKnockdownMenu.cpp": "0ae8030b6873c1773136be7e8d67aa9be8da7d168b04a9b32aa604a7ee394234",
     "payload/mkwKnockdownMode.cpp": "82490a2fc53ac13f641cfe99e409e3fa1dc34c9c59edb113c5f35e4ed2cf803c",
     "payload/mkwKnockdownMode.hpp": "d40ba1b756778fd7f2c7a978c0f04464b0142444030529dd69d490f09738cf9e",
-    "payload/mkwKnockout.cpp": "ecb859cbc0d808fc90f4d02b9dd4923fa5817d6ef6a3d869dd955d09f60f117e",
-    "payload/mkwKnockout.hpp": "110282fcd1f7e79d8cbfe8b10cd0d67c73544d8d1798452a7c4c9a4e37b15efd",
+    "payload/mkwKnockout.cpp": "afa26000e4002bf23400428597093baf98733da11f3fc58b01eec55410847f8f",
+    "payload/mkwKnockout.hpp": "9997205ea2e501b48ceed6a8b786432713f6f8cf7e251cf1e1b10b22b470962d",
     "payload/mkwKnockoutNotice.hpp": "3d6336c161a6d7786da25348011ab96f98cf4b980e2dca37f4b4958348cbf699",
     "payload/mkwKnockoutState.hpp": "a2ba0268db011bebf567175bd816d5ba4c76bb0f6dce0439c7b395d188945f7b",
     "payload/mkwKnockoutUI.cpp": "6a129f9a9ba5d51376886a92ec15536a3682a72d941ae94398363443516f770e",
-    "payload/mkwOnlineCPU.cpp": "df10d8f7478e71642dac4b4d9bbbc88c59f18c66feef4eb94ab833bc05f620bf",
-    "payload/mkwOnlineCPU.hpp": "ede215b8c65ce1a7ba65ae7165cedc57a45e3a2c63ea4ee5601d2e0c6ea2b89d",
+    "payload/mkwOnlineCPU.cpp": "edc2d074835cf875a7ba4857c772c99fb2e909b4b2b3fb57e42de6d59f99154d",
+    "payload/mkwOnlineCPU.hpp": "7803054e4d96644ec048670b9ae89556520106282916c06795a21a28691b11a7",
     "payload/mkwOnlineCPUEvents.cpp": "6b9ce7dc18d00d7ccfc17f7d5c457c2d74049df566df036cffb32ddb21fdc060",
     "payload/mkwOnlineCPUGrid.cpp": "a342d2cb82cdd24b13e25379154e718390da25b39cfb7943d991846c2cfea45a",
     "payload/mkwOnlineCPUItems.cpp": "2eb4dac322a38b632e0be9228ac52f6cab0dc6ffae2bfca24a17d659e6fa1843",
@@ -181,7 +181,7 @@
     "payload/mkwSpeedometer.cpp": "3a75e71ca0ba881ae2e182fb58ab1d5dbbf04befdd3a8bd2f90e599db29d0e5c",
     "payload/mkwSpeedometer.hpp": "867458eaa950348405e0beff88db945dcf511eeb54faabbc5817cf1e546c2315",
     "payload/mkwTime.cpp": "c1a5162d3ba6716f27a86aa09a621ae0b1181c9f1d90016f001efd54109c72fb",
-    "payload/wwfc.cpp": "b01e643d67945c32d003fa037df1149b9af2c17cee7110946624cbc9aa2097cd",
+    "payload/wwfc.cpp": "ecd04308f0f0b47e54b8aaf83e8aa28f981cf2135802eecd24ec6c0e94bc45f9",
     "payload/wwfcGPReport.cpp": "484b7ac45f5abf699cf70c03e490194828eb7f139cfd2ce7302fad350bab8cab",
     "payload/wwfcGPReport.hpp": "9b753fd54887a7d3c4a8bfc64b93b841b68571644c4bd2cfc3e46be1bf087b0a",
     "payload/wwfcLogin.cpp": "7ba136da5ce9317decc87cc99fb59d8cc05d0b0e808a37351d82cb4d797d4130",
@@ -196,10 +196,10 @@
     ]
   },
   "release_server_source_sha256": {
-    "common/config.go": "406fdd2d8b938b12e5ab1121b9e37e22c1db7e2122ba5303fb1575122cec950d",
-    "common/config_write.go": "8ad13da430a8364645ce819e74a4b6558b19e3cdf481d4873f31827c229a7fd8",
+    "common/config.go": "6eccd841ac8fc6104fdf30adc0432d388863cf6b4a0f4a2a78bb63e1c8449a68",
+    "common/config_write.go": "969d16ecd36f0b7f8ce890f1dbe0311a7d56407f6b5a979238e3e1dcd5098e64",
     "common/config_network.go": "9be81301bec545f4b7e83de29beeded6f3733cd95af41efba8066a427a38bf51",
-    "api/config.go": "5738310e414d2aaf400357356d917f9de3461c4eb0828f93d69477f0e78c41f6",
+    "api/config.go": "6cb3add685a6fd6ce16383ec377a3070e01124e5b3f65221610935d77c40cf5b",
     "api/preferences.go": "e1a8dcadab73f5addf3747a9c53331ab1504934eb9572c68ddc41a395d1699e4",
     "api/main.go": "d71220fd08d98f7ea21021e2f4149cd9d0dfd6a28851170c00c8f4c925d734c9",
     "api/races.go": "e10d2e6b0f19fa27727ac1a01baeccbd983c74c6d45b66e40b109a5947549b61",
@@ -217,7 +217,7 @@
     "gpcm/race_telemetry.go": "57cf3986bfcb0003c8443c479efb750d09d1ed6891eff60a32b66937778f3f9c",
     "qr2/race_telemetry.go": "e79f5927492c83dd4378c637adb917982ab4928e2dc07b9af848ae481aa2c7bc",
     "database/host_manager_preferences.go": "9f02f7f0fb84d21b65d6f1ed6a18ecc587420e717d974eb2b9d3711bc6596392",
-    "admin/web/app.js": "0aa844cd4b7df77a372099ea8ac5669e8e67b472cb7d1c615631f86ed8cb86c9",
+    "admin/web/app.js": "62ec746c5fb0bae6b71c52394049e9866a43bc10a5345628c95acb3ff109e883",
     "admin/web/style.css": "b26d7c83afcd566d0b6dfb53c71a5f2d617432fe556f7064ec4aa3f7d667d464",
     "admin/web/index.html": "2e31edc47de3a30f63e33143b6b7f6c666605a3c0b295b36b324b4482443be3f",
     "internal/assets/assets.go": "52e0c0aa6d6c52e8445862fe309e69c2e36115e54d52c54e296a27eb7c208b1a",
