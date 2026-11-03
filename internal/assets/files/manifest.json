@@ -20,8 +20,8 @@
     },
     {
       "path": "binary/payload.RMCPD00.bin",
-      "sha256": "b31649cd2f1c114de3703a96a09f75a3be5895efa28ae1ab444c4fc638d720fa",
-      "size": 99460,
+      "sha256": "263aacdcbc742cfdf0f7eb910e9e425c3083e16c6f1670578f32d4fb538ba094",
+      "size": 100332,
       "source": "wfc-patcher-wii/dist/binary/payload.RMCPD00.bin"
     },
     {
@@ -142,9 +142,9 @@
   "development_public_key": "3f32eb87b97515c960177ccf521836668ee926e8581fff84ca63639f4fa57741e44e5c49b75415f57470bcf4ce5e6678f1e5fe3a9818bd8f9ab752997c800081f3c0cef18bac431844957eb806410ea73e0ec06801698886812ffe5dfb62cf0edf4b1c670f09af3740600634e4c89855f3d0b5fe8c9292e069d9027de51e55001cdf44d6514bd6d3e2bcc0caf84290ee90f7c5ce6dd23d9e266d97e0c0828c63dcd68067c75872d2be2fe4395a6c0d8ab488ef3dd2deda4862da9e5fce3ed9091ec6744d74d26fba83c04b7ee0762c45a832acbc8d65dfdc9d002e8af84b8235bde30491ae3d5be9ef85c2b1d5d4f61d30bccd3e38f85155fc5a1b643f64372ee5e70d6888fc553d695e4dcd18ead3d7414c64829f4fc9970ae9743c94f9827f3e899a4e620e99b94fbbef05181f61c7e1edf870bf81e69c58b49adf30dcbeb3389f53577ca71ee5d911670909c0c6206960dad31d870eed15f0852c68cd18a60704c1f9a4fb745698d746fc31476a0904a3763b268334ded222f23fd4d9bbf0ba3fb31e964404a1c840b20c8a07ea167d57499e6becd3e17729356f82d7b85a2bf31a79f984af7a358526b4fc582f892a97c849b361bdf5dae9879bea5c4c15191f760c016f328073d1c44a87321ed6dfd90a2766b274c1caae16ca176609e937ca20fea2a67b2cd96d9126e661ddbb11187cfb8f43716b6aa20ad3c69894d863b049f5",
   "development_public_key_sha256": "a7abf1ed7b22f2f4092554b5ad2130606897fdb1b73aa238052d0e995dd34cd4",
   "format": 1,
-  "patcher_revision": "5b245047c2642a74d39d6ba48ea31d048b9be905",
+  "patcher_revision": "a163d55600c6868cb3f3c3405359c65e3c13c7b4",
   "payload_version": "0.3.19",
-  "wfc_server_revision": "e87da73008512bf121d05655f34987e7046c1590",
+  "wfc_server_revision": "b7a85d81122d42caadd675f217532854696405a5",
   "online_race_protocol_version": 3,
   "online_race_payloads": [
     "RMCPD00"
@@ -172,7 +172,7 @@
     "payload/mkwOnlineCPU.cpp": "1e312aa9428adf1bb7fc6e2b68dab935a0a2ca6d52834d869694a61adb490d02",
     "payload/mkwOnlineCPU.hpp": "31b9e4884e525924b863d27d5d1da6aac691548b8a0613be9017159a4517fd56",
     "payload/mkwOnlineCPUEvents.cpp": "6b9ce7dc18d00d7ccfc17f7d5c457c2d74049df566df036cffb32ddb21fdc060",
-    "payload/mkwOnlineCPUGrid.cpp": "a342d2cb82cdd24b13e25379154e718390da25b39cfb7943d991846c2cfea45a",
+    "payload/mkwOnlineCPUGrid.cpp": "f037b340b78ebf5a0b8646170cda1c822e685b82e646f2dee07a2c76e72e2091",
     "payload/mkwOnlineCPUItems.cpp": "2eb4dac322a38b632e0be9228ac52f6cab0dc6ffae2bfca24a17d659e6fa1843",
     "payload/mkwOnlineCPUNative.cpp": "5f6c5e22979ac91feae55c01fe36a0709fcd361866b16b46501ffa0472da255a",
     "payload/mkwOnlineCPUProtocol.hpp": "4ad2cf83ad426121f88ed9657edc78ba45de427134d3c35dcdc2a49028faf312",
@@ -206,7 +206,7 @@
     "api/preferences.go": "e1a8dcadab73f5addf3747a9c53331ab1504934eb9572c68ddc41a395d1699e4",
     "api/main.go": "d71220fd08d98f7ea21021e2f4149cd9d0dfd6a28851170c00c8f4c925d734c9",
     "api/races.go": "e10d2e6b0f19fa27727ac1a01baeccbd983c74c6d45b66e40b109a5947549b61",
-    "cli/cli.go": "9e6c790b9d9473e768c0af7f77e7624e755b46025e3b4bbbe9dc8514b31615ca",
+    "cli/cli.go": "b4f089e9d69e30a7ca7982e1bf6a461785e7d7c7fce549d6b0cdb0686b79de09",
     "gpcm/online_cpu.go": "ad1465cbe57320ca0702130219554fbe43200c853237e0e5a08865fd8ac21458",
     "gpcm/report.go": "1032142d28188aa78428246c758f8532ee2f3309734122cab6b347a20eb28fe8",
     "gpcm/main.go": "532421eb52a12818562d86d0e5720773b24064eada6d1923f1735a779f43f337",
