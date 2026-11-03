@@ -65,6 +65,7 @@ type Plan struct {
 	KnockoutEliminationCount int
 	SeriesID                 uint32
 	SeriesRound              int
+	SeriesState              uint8
 }
 
 type round struct {
@@ -143,6 +144,11 @@ func (e *Engine) Prepare(room Room, profileID, nonce uint32, policy Policy, now 
 		return changes
 	}
 	e.lastNonce[profileID] = nonce
+	if state.series != nil && state.series.complete {
+		// Completion belongs to the physical room. A new SELECT, a reconnect
+		// or a settings toggle must not create a fresh tournament here.
+		return append(changes, seriesCompleteDeliveries(state.series, capable)...)
+	}
 	// A new selection supersedes a proposal that never committed. It must
 	// collect fresh preparation from everyone rather than mix two selections.
 	if state.active != nil && !state.active.Committed {
@@ -165,10 +171,20 @@ func (e *Engine) Prepare(room Room, profileID, nonce uint32, policy Policy, now 
 			cpuCount = min(policy.Count, MaxPlayers-humanCount)
 		}
 	}
-	knockout := (room.KnockdownPool || (room.Private && policy.KnockoutEnabled)) && allCapable && humanCount+cpuCount >= 2
+	compatible := allCapable
 	for _, member := range state.room.Members {
 		// Native spectator HUD/camera allocation is currently one local human.
-		knockout = knockout && member.LocalPlayers == 1 && member.KnockdownCompatible
+		compatible = compatible && member.LocalPlayers == 1 && member.KnockdownCompatible
+	}
+	knockout := (room.KnockdownPool || (room.Private && policy.KnockoutEnabled)) && compatible && humanCount+cpuCount >= 2
+	if state.series != nil && state.series.started {
+		// Once a room starts Race Knockout, its rules/identity survive lobby
+		// changes. An incompatible arrival cannot silently revive everyone in
+		// an ordinary VS plan; it must leave before this series can advance.
+		if !compatible {
+			return changes
+		}
+		knockout = true
 	}
 	if room.KnockdownPool && !knockout {
 		return append(changes, cancel(state)...)
@@ -176,7 +192,6 @@ func (e *Engine) Prepare(room Room, profileID, nonce uint32, policy Policy, now 
 	// Every current participant has entered the next selection. Retire the old
 	// epoch before delivering its replacement, never when a waiting human joins
 	// an otherwise running race.
-	previous := state.active
 	changes = append(changes, cancel(state)...)
 	e.nextEpoch++
 	if e.nextEpoch == 0 {
@@ -194,15 +209,22 @@ func (e *Engine) Prepare(room Room, profileID, nonce uint32, policy Policy, now 
 		outCount = 2
 	}
 	var series *raceSeries
+	if state.series != nil && state.series.started {
+		mode = KnockoutModeRace
+		series = state.series
+		outCount = series.outCount
+	}
 	if knockout && mode == KnockoutModeRace {
 		series = state.series
-		key := raceSeriesKey(state.signature, outCount)
-		if series == nil || series.complete || series.key != key ||
-			(previous != nil && previous.Committed && previous.series == series && previous.courseReport == nil) {
-			series = newRaceSeries(e.nextEpoch, key, cpuCount, seed)
+		if series == nil || !series.started {
+			series = newRaceSeries(e.nextEpoch, capable, cpuCount, seed, outCount)
 			state.series = series
 		}
-		cpuCount, seed = series.cpuCount, series.seed
+		cpuCount, seed = min(series.cpuCount, MaxPlayers-humanCount), series.seed
+		series.prepareMembership(capable, cpuCount)
+		if series.complete {
+			return append(changes, seriesCompleteDeliveries(series, capable)...)
+		}
 	} else {
 		state.series = nil
 	}
@@ -212,14 +234,18 @@ func (e *Engine) Prepare(room Room, profileID, nonce uint32, policy Policy, now 
 		series: series, frozenHumans: append([]uint32(nil), capable...),
 	}
 	if series != nil {
+		series.lastEpoch = state.active.Epoch
 		state.active.SeriesID = series.id
 		state.active.SeriesRound = series.completedRounds + 1
+		state.active.SeriesState = series.state()
 		state.active.seriesPlacements = cloneSeriesPlacements(series.placements)
 		for entrant, place := range state.active.seriesPlacements {
-			if entrant.kind == 1 {
+			if entrant.kind == 1 && int(entrant.slot) < cpuCount {
 				state.active.knockoutMask |= 1 << (humanCount + int(entrant.slot))
 			}
-			state.active.knockoutPlaces |= 1 << (place - 1)
+			if place >= 2 && place <= MaxPlayers {
+				state.active.knockoutPlaces |= 1 << (place - 1)
+			}
 		}
 		state.active.tournament = tournamentMessage(state.active)
 	}
@@ -237,7 +263,10 @@ func (e *Engine) Prepare(room Room, profileID, nonce uint32, policy Policy, now 
 }
 
 func (e *Engine) Ack(room Room, profileID, epoch uint32, now time.Time) []Delivery {
-	state, _, _, _, changes, ok := e.reconcile(room)
+	state, _, capable, _, changes, ok := e.reconcile(room)
+	if ok && state.series != nil && state.series.complete && epoch == state.series.lastEpoch && contains(capable, profileID) {
+		return append(changes, seriesCompleteDeliveries(state.series, []uint32{profileID})...)
+	}
 	if !ok || state.active == nil || state.active.Epoch != epoch || !contains(state.active.members, profileID) {
 		return changes
 	}
@@ -251,6 +280,9 @@ func (e *Engine) Ack(room Room, profileID, epoch uint32, now time.Time) []Delive
 	}
 	state.active.Committed = true
 	state.active.created = now
+	if state.active.series != nil {
+		state.active.series.started = true
+	}
 	return append(changes, deliver(state.active.members, fmt.Sprintf("LCPU3:C:%d", epoch))...)
 }
 
@@ -389,7 +421,6 @@ func (e *Engine) GridError(room Room, profileID, epoch uint32) []Delivery {
 	state, _, _, _, changes, ok := e.reconcile(room)
 	if ok && state.active != nil && state.active.Epoch == epoch && contains(state.active.members, profileID) {
 		changes = append(changes, cancel(state)...)
-		state.series = nil
 	}
 	return changes
 }
@@ -401,12 +432,24 @@ func (e *Engine) Reconcile(room Room) []Delivery {
 	return changes
 }
 
+// ReconcileRoomIdentity applies a periodic snapshot only while the engine still
+// tracks that physical room. A concurrent report may already have replaced a
+// display name with a new group's plan after the ticker took its room list.
+func (e *Engine) ReconcileRoomIdentity(room Room, groupID uint32) []Delivery {
+	state := e.rooms[room.Name]
+	if state == nil || state.room.GroupID != groupID || room.GroupID != groupID {
+		return nil
+	}
+	return e.Reconcile(room)
+}
+
 func (e *Engine) Leave(profileID uint32) []Delivery {
 	var changes []Delivery
-	for name, state := range e.rooms {
+	for _, state := range e.rooms {
 		if state.room.OwnerPID == profileID || (state.active != nil && state.active.OwnerPID == profileID) {
 			changes = append(changes, cancel(state)...)
-			delete(e.rooms, name)
+			// The QR2 room can outlive its current owner while another member
+			// becomes host. Preserve series ranks until room deletion is known.
 			continue
 		}
 		room := state.room
@@ -441,6 +484,14 @@ func (e *Engine) RemoveRoom(name string) []Delivery {
 	return changes
 }
 
+func (e *Engine) RemoveRoomByIdentity(name string, groupID uint32) []Delivery {
+	state := e.rooms[name]
+	if state == nil || state.room.GroupID != groupID {
+		return nil
+	}
+	return e.RemoveRoom(name)
+}
+
 func (e *Engine) Expire(now time.Time) []Delivery {
 	var changes []Delivery
 	for _, state := range e.rooms {
@@ -468,7 +519,6 @@ func (e *Engine) Expire(now time.Time) []Delivery {
 		if (active.lastAlive.IsZero() && now.Sub(active.created) > LoadingGrace) ||
 			(!active.lastAlive.IsZero() && now.Sub(active.lastAlive) > HostTimeout) {
 			changes = append(changes, cancel(state)...)
-			state.series = nil
 		}
 	}
 	return changes
@@ -502,6 +552,11 @@ func (e *Engine) reconcile(room Room) (*roomState, int, []uint32, bool, []Delive
 	}
 	state := e.rooms[room.Name]
 	var changes []Delivery
+	if state != nil && state.room.GroupID != room.GroupID {
+		changes = append(changes, cancel(state)...)
+		delete(e.rooms, room.Name)
+		state = nil
+	}
 	if room.KnockdownPool {
 		compatible := !room.Private && len(capable) == len(room.Members)
 		for _, member := range room.Members {
@@ -509,8 +564,7 @@ func (e *Engine) reconcile(room Room) (*roomState, int, []uint32, bool, []Delive
 		}
 		if !compatible {
 			if state != nil {
-				changes = cancel(state)
-				state.series = nil
+				changes = append(changes, cancel(state)...)
 			}
 			return state, humanCount, capable, false, changes, false
 		}
@@ -519,9 +573,8 @@ func (e *Engine) reconcile(room Room) (*roomState, int, []uint32, bool, []Delive
 		state = &roomState{room: room, signature: signature.String(), prepared: map[uint32]uint32{}}
 		e.rooms[room.Name] = state
 	} else if state.signature != signature.String() {
-		// A changed lobby invalidates the next tournament. The old committed
-		// course retains its frozen roster and independent series pointer.
-		state.series = nil
+		// Series ranks belong to this physical QR2 group, independent of its
+		// transient membership, host, or the next course's native racer IDs.
 		// Joining humans wait for the next native selection; a departed human
 		// is handled by the game's ordinary disconnect path. Neither change
 		// can replace already allocated CPU objects in the running race.

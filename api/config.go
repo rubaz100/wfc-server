@@ -36,6 +36,7 @@ type ConfigResponseSpec struct {
 	KnockoutMode                string `json:"knockoutMode"`
 	KnockoutEliminationCount    int    `json:"knockoutEliminationCount"`
 	KnockoutAvailable           bool   `json:"knockoutAvailable"`
+	DisableInactivityDisconnect bool   `json:"disableInactivityDisconnect"`
 }
 
 type ConfigUpdateSpec struct {
@@ -53,6 +54,7 @@ type ConfigUpdateSpec struct {
 	KnockoutEnabled             *bool   `json:"knockoutEnabled"`
 	KnockoutMode                *string `json:"knockoutMode"`
 	KnockoutEliminationCount    *int    `json:"knockoutEliminationCount"`
+	DisableInactivityDisconnect *bool   `json:"disableInactivityDisconnect"`
 }
 
 // HandleConfig reads (GET) a redacted view of the server config or writes (POST)
@@ -99,6 +101,7 @@ func handleGetConfig(w http.ResponseWriter, r *http.Request) {
 		KnockoutMode:                c.KnockoutMode,
 		KnockoutEliminationCount:    c.KnockoutEliminationCount,
 		KnockoutAvailable:           gpcm.KnockdownPoolAvailable(),
+		DisableInactivityDisconnect: c.DisableInactivityDisconnect,
 	})
 }
 
@@ -153,6 +156,9 @@ func handleSetConfig(w http.ResponseWriter, r *http.Request) {
 	if req.KnockoutEnabled != nil {
 		fields["knockoutEnabled"] = boolStr(*req.KnockoutEnabled)
 	}
+	if req.DisableInactivityDisconnect != nil {
+		fields["disableInactivityDisconnect"] = boolStr(*req.DisableInactivityDisconnect)
+	}
 	if req.KnockoutMode != nil {
 		if *req.KnockoutMode != common.KnockoutModeRound && *req.KnockoutMode != common.KnockoutModeRace {
 			replyError(w, http.StatusBadRequest, APIErrorInvalidQuery)
@@ -189,6 +195,9 @@ func handleSetConfig(w http.ResponseWriter, r *http.Request) {
 	// Apply runtime side-effects not picked up automatically from cached config.
 	if req.AllowDefaultDolphinKeys != nil {
 		gpcm.SetAllowDefaultDolphinKeys(*req.AllowDefaultDolphinKeys)
+	}
+	if req.DisableInactivityDisconnect != nil {
+		gpcm.BroadcastInactivitySettings()
 	}
 	if req.OnlineCPUEnabled != nil || req.OnlineCPUCount != nil || req.OnlineCPUAutoFill != nil || req.KnockoutEnabled != nil || req.KnockoutMode != nil || req.KnockoutEliminationCount != nil {
 		gpcm.BroadcastOnlineCPUSettings()

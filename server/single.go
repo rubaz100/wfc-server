@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io"
 	"net"
 	"os"
 	"sync"
@@ -202,6 +203,16 @@ func RunSingle(ctx context.Context, config common.Config, options SingleOptions)
 							service.handlePacket(index, buffer[:n], address)
 						}
 						if err != nil {
+							if service.name == "gpcm" && ctx.Err() == nil {
+								switch {
+								case errors.Is(err, io.EOF):
+									logging.Notice("GPCM:transport", "Peer closed TCP connection:", index)
+								case errors.Is(err, net.ErrClosed):
+									logging.Notice("GPCM:transport", "TCP connection closed locally:", index)
+								default:
+									logging.Warn("GPCM:transport", "TCP read failed for connection", index, ":", err)
+								}
+							}
 							return
 						}
 					}

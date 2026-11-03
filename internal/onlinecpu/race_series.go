@@ -16,6 +16,10 @@ const (
 	CourseResultHeaderSize = 12
 	CourseResultRowSize    = 16
 	MaxCourseResultSize    = CourseResultHeaderSize + MaxPlayers*CourseResultRowSize
+	SeriesStateRunning     = 0
+	SeriesStateFinal       = 1
+	SeriesStateComplete    = 2
+	UnrankedSpectator      = 0xff
 )
 
 // Human racers are keyed by authenticated profile, not their transient native
@@ -29,20 +33,91 @@ type seriesEntrant struct {
 
 type raceSeries struct {
 	id              uint32
-	key             string
 	cpuCount        int
 	seed            uint32
+	outCount        int
+	entrants        map[seriesEntrant]bool
 	placements      map[seriesEntrant]uint8
 	completedRounds int
 	complete        bool
+	started         bool
+	lastEpoch       uint32
 }
 
-func newRaceSeries(id uint32, key string, cpus int, seed uint32) *raceSeries {
-	return &raceSeries{id: id, key: key, cpuCount: cpus, seed: seed, placements: map[seriesEntrant]uint8{}}
+func newRaceSeries(id uint32, humans []uint32, cpus int, seed uint32, outCount int) *raceSeries {
+	series := &raceSeries{id: id, cpuCount: cpus, seed: seed, outCount: outCount,
+		entrants: map[seriesEntrant]bool{}, placements: map[seriesEntrant]uint8{}, lastEpoch: id}
+	for _, pid := range humans {
+		series.entrants[seriesEntrant{profile: pid}] = true
+	}
+	for slot := 0; slot < cpus; slot++ {
+		series.entrants[seriesEntrant{kind: 1, slot: uint8(slot)}] = true
+	}
+	return series
 }
 
-func raceSeriesKey(signature string, outCount int) string {
-	return fmt.Sprintf("%s/race/%d", signature, outCount)
+func (series *raceSeries) remaining() int {
+	remaining := 0
+	for entrant := range series.entrants {
+		if series.placements[entrant] == 0 {
+			remaining++
+		}
+	}
+	return remaining
+}
+
+func (series *raceSeries) state() uint8 {
+	if series.complete {
+		return SeriesStateComplete
+	}
+	if series.remaining() == 2 {
+		return SeriesStateFinal
+	}
+	return SeriesStateRunning
+}
+
+// Membership affects only the next grid. A returning profile keeps its rank;
+// a new profile watches this series. Missing surviving entrants forfeit before
+// another course starts, including CPU ordinals displaced by the 12-slot cap.
+func (series *raceSeries) prepareMembership(humans []uint32, cpus int) {
+	present := make(map[seriesEntrant]bool, len(humans)+cpus)
+	for _, pid := range humans {
+		entrant := seriesEntrant{profile: pid}
+		present[entrant] = true
+		if !series.entrants[entrant] {
+			series.placements[entrant] = UnrankedSpectator
+		}
+	}
+	for slot := 0; slot < cpus; slot++ {
+		present[seriesEntrant{kind: 1, slot: uint8(slot)}] = true
+	}
+	for entrant := range series.placements {
+		if !series.entrants[entrant] && !present[entrant] {
+			// New profiles always rejoin as unranked spectators. Only the
+			// original entrants need a lasting rank record after they leave.
+			delete(series.placements, entrant)
+		}
+	}
+	var absent []seriesEntrant
+	for entrant := range series.entrants {
+		if !present[entrant] && series.placements[entrant] == 0 {
+			absent = append(absent, entrant)
+		}
+	}
+	sort.Slice(absent, func(i, j int) bool { return entrantLess(absent[i], absent[j]) })
+	remaining := series.remaining()
+	for _, entrant := range absent {
+		if remaining <= 1 {
+			break
+		}
+		series.placements[entrant] = uint8(remaining)
+		remaining--
+	}
+	series.complete = remaining <= 1
+}
+
+func seriesCompleteDeliveries(series *raceSeries, recipients []uint32) []Delivery {
+	return deliver(recipients, fmt.Sprintf("LCPU3:Z:%d:%d", series.lastEpoch, series.id))
 }
 
 func cloneSeriesPlacements(placements map[seriesEntrant]uint8) map[seriesEntrant]uint8 {
@@ -72,7 +147,7 @@ func tournamentMessage(active *round) string {
 	if humanText == "" {
 		humanText = "0"
 	}
-	return fmt.Sprintf("LCPU3:T:%d:%d:%d:%d:%s:%s", active.Epoch, active.SeriesID, active.SeriesRound, active.KnockoutEliminationCount, cpuText, humanText)
+	return fmt.Sprintf("LCPU3:T:%d:%d:%d:%d:%d:%s:%s", active.Epoch, active.SeriesID, active.SeriesRound, active.KnockoutEliminationCount, active.SeriesState, cpuText, humanText)
 }
 
 func planDeliveries(active *round, recipients []uint32, committed bool) []Delivery {
@@ -82,7 +157,7 @@ func planDeliveries(active *round, recipients []uint32, committed bool) []Delive
 		if active.tournament != "" {
 			deliveries = append(deliveries, Delivery{To: pid, Message: active.tournament})
 		}
-		if committed && active.Committed {
+		if committed && active.Committed && active.SeriesState != SeriesStateComplete {
 			deliveries = append(deliveries, Delivery{To: pid, Message: fmt.Sprintf("LCPU3:C:%d", active.Epoch)})
 		}
 	}
@@ -92,15 +167,22 @@ func planDeliveries(active *round, recipients []uint32, committed bool) []Delive
 // PlanMessages recovers an interrupted proposal or tournament-metadata relay.
 // It never creates another epoch or changes a committed grid.
 func (e *Engine) PlanMessages(room Room, profileID, epoch uint32) []Delivery {
-	state, _, _, _, changes, ok := e.reconcile(room)
+	state, _, capable, _, changes, ok := e.reconcile(room)
+	if ok && state.active == nil && state.series != nil && state.series.complete &&
+		epoch == state.series.lastEpoch && contains(capable, profileID) {
+		return append(changes, seriesCompleteDeliveries(state.series, []uint32{profileID})...)
+	}
 	if !ok || state.active == nil || state.active.Epoch != epoch || !contains(state.active.members, profileID) {
 		return changes
 	}
 	changes = append(changes, planDeliveries(state.active, []uint32{profileID}, true)...)
 	for _, reply := range state.active.courseReplies {
 		if reply.To == profileID {
-			changes = append(changes, Delivery{To: profileID, Knockout: append([]byte(nil), reply.Knockout...)})
+			changes = append(changes, cloneDeliveries([]Delivery{reply})...)
 		}
+	}
+	if state.series != nil && state.series.complete {
+		changes = append(changes, seriesCompleteDeliveries(state.series, []uint32{profileID})...)
 	}
 	return changes
 }
@@ -149,7 +231,11 @@ func (e *Engine) CourseResult(room Room, profileID uint32, data []byte, now time
 	if active.courseReport != nil {
 		if bytes.Equal(data, active.courseReport) {
 			active.lastAlive = now
-			return append(changes, cloneDeliveries(active.courseReplies)...)
+			changes = append(changes, cloneDeliveries(active.courseReplies)...)
+			if active.series.complete {
+				changes = append(changes, seriesCompleteDeliveries(active.series, active.members)...)
+			}
+			return changes
 		}
 		return changes
 	}
@@ -220,7 +306,12 @@ func (e *Engine) CourseResult(room Room, profileID uint32, data []byte, now time
 		}
 		return entrantLess(a.entrant, b.entrant)
 	})
-	outCount := min(active.KnockoutEliminationCount, len(rows)-1)
+	// A two-elimination series still has a distinct 1v1 final: with three
+	// contenders, eliminate one now and resolve the last pair next course.
+	outCount := 1
+	if len(rows) > 2 {
+		outCount = min(active.KnockoutEliminationCount, len(rows)-2)
+	}
 	if outCount < 1 || outCount > 2 {
 		return changes
 	}
@@ -265,5 +356,11 @@ func (e *Engine) CourseResult(room Room, profileID uint32, data []byte, now time
 	active.courseReplies = cloneDeliveries(replies)
 	active.series.completedRounds = active.SeriesRound
 	active.series.complete = len(rows)-outCount == 1
+	if active.series.complete {
+		active.SeriesState = SeriesStateComplete
+		active.tournament = tournamentMessage(active)
+		changes = append(changes, replies...)
+		return append(changes, seriesCompleteDeliveries(active.series, active.members)...)
+	}
 	return append(changes, replies...)
 }

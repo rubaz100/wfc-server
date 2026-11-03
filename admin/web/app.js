@@ -482,8 +482,11 @@ function formatRaceFinish(ms) {
 	return `${Math.floor(ms / 60000)}:${String(Math.floor(ms / 1000) % 60).padStart(2, "0")}.${String(Math.floor(ms) % 1000).padStart(3, "0")}`;
 }
 function liveRacerStatus(racer, phase, knockoutMode) {
+	if (racer.eliminated) {
+		const label = knockoutMode === "race" ? "Out of series · Spectating" : "Eliminated · Spectating";
+		return `<span class="tag red">${label}</span>${racer.disconnected ? ' <span class="tag gray">Disconnected</span>' : ""}`;
+	}
 	if (racer.disconnected) return '<span class="tag gray">Disconnected</span>';
-	if (racer.eliminated) return `<span class="tag red">${knockoutMode === "race" ? "Out of series" : "Eliminated"}</span>`;
 	if (racer.winner) return '<span class="tag green">Winner</span>';
 	if (racer.finished) return '<span class="tag green">Finished</span>';
 	if (phase === "waiting" || phase === "loading" || phase === "countdown") return '<span class="tag gray">On grid</span>';
@@ -516,7 +519,7 @@ function paintLiveRaces() {
 		return;
 	}
 	const racers = (Array.isArray(race.racers) ? race.racers : []).filter((racer) => racer && Number.isInteger(racer.id) && racer.id >= 0 && racer.id < 12).slice(0, 12);
-	const sorted = [...racers].sort((a, b) => Number(!!b.winner) - Number(!!a.winner) || (Number(a.position) > 0 ? a.position : 99) - (Number(b.position) > 0 ? b.position : 99) || (Number(b.progress) || 0) - (Number(a.progress) || 0) || a.id - b.id);
+	const sorted = [...racers].sort((a, b) => Number(!!b.winner) - Number(!!a.winner) || Number(!!a.eliminated) - Number(!!b.eliminated) || (Number(a.position) > 0 ? a.position : 99) - (Number(b.position) > 0 ? b.position : 99) || (Number(b.progress) || 0) - (Number(a.progress) || 0) || a.id - b.id);
 	const age = liveRaceAge(race);
 	const stale = race.stale || age >= 3000;
 	const seen = new Date(Date.now() - age).toLocaleTimeString();
@@ -524,7 +527,7 @@ function paintLiveRaces() {
 	const seriesRound = Number.isInteger(race.seriesRound) && race.seriesRound > 0 && race.seriesRound <= 12 ? race.seriesRound : 0;
 	const outCount = [1, 2].includes(race.knockoutEliminationCount) ? race.knockoutEliminationCount : 0;
 	const outLabel = outCount === 2 ? "Up to 2" : "1";
-	const rows = sorted.map((racer) => `<tr class="${racer.eliminated || racer.disconnected ? "racer-inactive" : ""}">
+	const rows = sorted.map((racer) => `<tr class="${racer.eliminated ? "racer-eliminated " : ""}${racer.eliminated || racer.disconnected ? "racer-inactive" : ""}">
 		<td class="race-place">${Number.isInteger(racer.position) && racer.position > 0 && racer.position <= 12 ? racer.position : "—"}</td>
 		<th scope="row"><span class="racer-identity"><span class="racer-number" style="--racer-color:${racerColor(racer)}">${raceMarkerNumber(racer)}</span><span class="racer-name">${esc(raceRacerName(racer))}</span></span></th>
 		<td><span class="tag ${racer.isCPU ? "gray" : "blue"}">${racer.isCPU ? "CPU" : "Player"}</span></td>
@@ -746,6 +749,11 @@ async function renderSettings() {
 					<span class="hint">Applies live.</span>
 				</div>
 				<fieldset class="cpu-settings">
+					<legend>Race connections</legend>
+					<div class="field switch"><input type="checkbox" id="cf-disable-inactivity" ${cfg.disableInactivityDisconnect !== false ? "checked" : ""} aria-describedby="cf-disable-inactivity-help"><label for="cf-disable-inactivity" style="margin:0">Disable inactivity disconnects</label></div>
+					<span class="hint" id="cf-disable-inactivity-help">On by default. Updated PAL online VS players stay connected when their input is unchanged or their kart stops moving. Controller loss, network failures and normal race finishing still apply. Saved changes apply to connected compatible clients.</span>
+				</fieldset>
+				<fieldset class="cpu-settings">
 					<legend>Knockout <span class="tag ${knockoutAvailable ? "warn" : ""}">${knockoutAvailable ? "Experimental" : "Unavailable"}</span></legend>
 					<div class="field switch"><input type="checkbox" id="cf-knockout" ${cfg.knockoutEnabled ? "checked" : ""} ${knockoutAvailable ? "" : "disabled"} aria-describedby="cf-knockout-help"><label for="cf-knockout" style="margin:0">Enable Knockout in private rooms</label></div>
 					<span class="hint" id="cf-knockout-help">Applies to the next agreed private VS race, including CPU racers. The public Knockdown option always runs Knockout in its own matchmaking pool; Worldwide runs normal VS. Requires compatible PAL disc payloads and one local human per console. Multiplayer validation is pending.</span>
@@ -762,14 +770,14 @@ async function renderSettings() {
 							<option value="1" ${sel(cfg.knockoutEliminationCount ?? 1, 1)}>1 racer</option>
 								<option value="2" ${sel(cfg.knockoutEliminationCount ?? 1, 2)}>2 racers</option>
 						</select>
-						<span class="hint" id="cf-knockout-mode-help">Round Knockdown eliminates the last active racer at each leader lap until one remains. Race Knockout eliminates the last 1 or 2 active racers after each completed race; survivors continue into the next race. Applies to the public Knockdown pool and enabled private rooms. Existing races keep their agreed settings; changing mode or room membership starts a new series.</span>
+						<span class="hint" id="cf-knockout-mode-help">Round Knockdown eliminates the last active racer at each leader lap. Race Knockout eliminates 1 or 2 after each completed race, keeping two for the final. Eliminated and rejoining players spectate until the winner; newcomers spectate too. The host closes the room after the series before another can begin. Applies to the public Knockdown pool and enabled private rooms.</span>
 					</div>
 				</fieldset>
 				<fieldset class="cpu-settings">
 					<legend>Online CPUs <span class="tag ${cpuAvailable ? "warn" : ""}">${cpuAvailable ? "Experimental" : "In development"}</span></legend>
 					<div class="field switch"><input type="checkbox" id="cf-online-cpu" ${cfg.onlineCPUEnabled ? "checked" : ""} ${cpuAvailable ? "" : "disabled"} aria-describedby="cf-online-cpu-help"><label for="cf-online-cpu" style="margin:0">Enable CPU racers when available</label></div>
 					<div class="field switch"><input type="checkbox" id="cf-online-cpu-auto-fill" ${cfg.onlineCPUAutoFill ? "checked" : ""} ${cpuAvailable && cfg.onlineCPUEnabled ? "" : "disabled"} aria-describedby="cf-online-cpu-fill-help"><label for="cf-online-cpu-auto-fill" style="margin:0">Auto-fill empty slots to 12 racers</label></div>
-					<span class="hint" id="cf-online-cpu-fill-help">Real players take priority. For example, 4 real players + 8 CPUs becomes 5 real players + 7 CPUs next race when someone joins. A player cannot take over a CPU mid-race. Race Knockout keeps its CPU roster fixed through the series so eliminated CPUs stay out; membership changes start a new series.</span>
+					<span class="hint" id="cf-online-cpu-fill-help">Real players take priority between ordinary VS races. For example, 4 real players + 8 CPUs becomes 5 real players + 7 CPUs next race. No mid-race takeover. Race Knockout retains its series identities and elimination status; joining does not restart the series or revive CPUs.</span>
 					<div class="field">
 						<label for="cf-online-cpu-count">CPUs to add when auto-fill is off</label>
 						<input type="number" id="cf-online-cpu-count" min="1" max="11" step="1" value="${esc(cfg.onlineCPUCount ?? 4)}" ${cpuAvailable && cfg.onlineCPUEnabled && !cfg.onlineCPUAutoFill ? "" : "disabled"} required aria-describedby="cf-online-cpu-help">
@@ -858,6 +866,7 @@ async function renderSettings() {
 					enableHttpsExploitWii: $("#cf-expwii").checked,
 					enableHttpsExploitDS: $("#cf-expds").checked,
 					logLevel: parseInt($("#cf-log").value, 10),
+					disableInactivityDisconnect: $("#cf-disable-inactivity").checked,
 					onlineCPUEnabled: $("#cf-online-cpu").checked,
 					onlineCPUAutoFill,
 					knockoutEnabled: $("#cf-knockout").checked,

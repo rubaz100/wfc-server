@@ -143,6 +143,7 @@ func Ensure(dataDir, lanAddress string, imported *certs.Sources) (Result, error)
     <allowMultipleDeviceIDs>SameIPAddress</allowMultipleDeviceIDs>
     <allowConnectWithoutDeviceID>false</allowConnectWithoutDeviceID>
     <serverName>mkwfc LAN</serverName>
+    <disableInactivityDisconnect>true</disableInactivityDisconnect>
     <logLevel>4</logLevel>
     <logOutput>StdOut</logOutput>
     <allowUnsafeBind>false</allowUnsafeBind>

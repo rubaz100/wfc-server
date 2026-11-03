@@ -16,6 +16,25 @@ func OnlineCPURoomForProfile(profileID uint32) (onlinecpu.Room, bool) {
 		return onlinecpu.Room{}, false
 	}
 	group := login.session.groupPointer
+	return onlineCPURoom(group)
+}
+
+// OnlineCPURoomByIdentity distinguishes a closed room from one temporarily
+// lacking an authenticated host/member snapshot. Series ranks must survive the
+// latter while the remaining QR2 members keep the same physical room alive.
+func OnlineCPURoomByIdentity(name string, groupID uint32) (room onlinecpu.Room, ready bool, exists bool) {
+	mutex.Lock()
+	defer mutex.Unlock()
+	group := groups[name]
+	if group == nil || group.GroupID != groupID || len(group.players) == 0 {
+		return onlinecpu.Room{}, false, false
+	}
+	room, ready = onlineCPURoom(group)
+	return room, ready, true
+}
+
+// Expects the QR2 mutex to be held.
+func onlineCPURoom(group *Group) (onlinecpu.Room, bool) {
 	if group.server == nil || group.GameName != "mariokartwii" {
 		return onlinecpu.Room{}, false
 	}

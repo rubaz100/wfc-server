@@ -44,7 +44,7 @@ func (g *GameSpySession) acceptOnlineCPUCapability(command common.GameSpyCommand
 	}
 	g.CPUVersion = onlinecpu.ProtocolVersion
 	g.KnockdownPoolVersion = 0
-	if requested := command.OtherValues["wl:ko_pool_ver"]; requested == "1" || requested == "2" || requested == "3" {
+	if requested := command.OtherValues["wl:ko_pool_ver"]; requested == "1" || requested == "2" || requested == "3" || requested == "4" {
 		version, _ := strconv.ParseUint(requested, 10, 32)
 		g.KnockdownPoolVersion = uint32(version)
 	}
@@ -89,7 +89,7 @@ func sendOnlineCPUSettings(pid uint32) {
 	mutex.Unlock()
 	// A separate envelope preserves the original CPU settings parser and also
 	// reaches DNS/SBCM clients whose authenticated capability arrives at exlogin.
-	if requested == 1 || requested == 2 || requested == 3 {
+	if requested == 1 || requested == 2 || requested == 3 || requested == 4 {
 		deliveries = append(deliveries, onlinecpu.Delivery{To: pid, Message: fmt.Sprintf("LKD%d:S:%d", requested, poolVersion)})
 	}
 	deliverOnlineCPU(deliveries)
@@ -192,7 +192,7 @@ func deliverOnlineCPU(deliveries []onlinecpu.Delivery) {
 		if len(message) >= 256 || strings.ContainsAny(message, "\x00\\|") {
 			continue
 		}
-		if strings.HasPrefix(message, "LCPU3:P:") || strings.HasPrefix(message, "LCPU3:C:") || strings.HasPrefix(message, "LCPU3:X:") || strings.HasPrefix(message, "LCPU3:E:") {
+		if strings.HasPrefix(message, "LCPU3:P:") || strings.HasPrefix(message, "LCPU3:C:") || strings.HasPrefix(message, "LCPU3:X:") || strings.HasPrefix(message, "LCPU3:E:") || strings.HasPrefix(message, "LCPU3:Z:") {
 			logging.Info("GPCM:CPU", "Control:", message, "recipient:", delivery.To)
 		}
 		mutex.Lock()
@@ -244,12 +244,12 @@ func startOnlineCPURelay() {
 				cpuRelay.Unlock()
 				var deliveries []onlinecpu.Delivery
 				for _, old := range rooms {
-					room, ok := qr2.OnlineCPURoomForProfile(old.OwnerPID)
+					room, ready, exists := qr2.OnlineCPURoomByIdentity(old.Name, old.GroupID)
 					cpuRelay.Lock()
-					if ok && room.Name == old.Name {
-						deliveries = append(deliveries, cpuRelay.engine.Reconcile(room)...)
-					} else {
-						deliveries = append(deliveries, cpuRelay.engine.RemoveRoom(old.Name)...)
+					if ready {
+						deliveries = append(deliveries, cpuRelay.engine.ReconcileRoomIdentity(room, old.GroupID)...)
+					} else if !exists {
+						deliveries = append(deliveries, cpuRelay.engine.RemoveRoomByIdentity(old.Name, old.GroupID)...)
 					}
 					cpuRelay.Unlock()
 				}

@@ -72,6 +72,9 @@ type Config struct {
 	KnockoutEnabled          bool   `xml:"knockoutEnabled,omitempty"`
 	KnockoutMode             string `xml:"knockoutMode,omitempty"`
 	KnockoutEliminationCount int    `xml:"knockoutEliminationCount,omitempty"`
+	// Disable only idle/no-progress disconnects on negotiated PAL online VS.
+	// Keep false explicit in serialized XML: a missing tag defaults to true.
+	DisableInactivityDisconnect bool `xml:"disableInactivityDisconnect"`
 
 	EventReporting EventReportingConfig `xml:"eventReporting"`
 }
@@ -116,13 +119,14 @@ func LoadConfig() (Config, error) {
 		return Config{}, err
 	}
 	loaded := Config{
-		AllowDefaultDolphinKeys:  true,
-		AllowMultipleDeviceIDs:   "never",
-		ServerName:               "mkwfc",
-		LocalDomain:              "mkwfc.lan",
-		OnlineCPUCount:           4,
-		KnockoutMode:             KnockoutModeRound,
-		KnockoutEliminationCount: 1,
+		AllowDefaultDolphinKeys:     true,
+		AllowMultipleDeviceIDs:      "never",
+		ServerName:                  "mkwfc",
+		LocalDomain:                 "mkwfc.lan",
+		OnlineCPUCount:              4,
+		KnockoutMode:                KnockoutModeRound,
+		KnockoutEliminationCount:    1,
+		DisableInactivityDisconnect: true,
 	}
 	if err := xml.Unmarshal(data, &loaded); err != nil {
 		return Config{}, err

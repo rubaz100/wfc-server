@@ -389,10 +389,10 @@ func (g *GameSpySession) login(command common.GameSpyCommand) {
 		"id":         command.OtherValues["id"],
 	}
 	poolRequest := command.OtherValues["wl:ko_pool_ver"]
-	if g.GameName == "mariokartwii" && (poolRequest == "1" || poolRequest == "2" || poolRequest == "3") {
+	if g.GameName == "mariokartwii" && (poolRequest == "1" || poolRequest == "2" || poolRequest == "3" || poolRequest == "4") {
 		otherValues["wl:ko_pool_ver"] = "0"
-		if poolRequest == "3" && g.DeviceAuthenticated && command.OtherValues["wl:cpu_ver"] == "3" && KnockdownPoolAvailable() {
-			otherValues["wl:ko_pool_ver"] = "3"
+		if poolRequest == "4" && g.DeviceAuthenticated && command.OtherValues["wl:cpu_ver"] == "3" && KnockdownPoolAvailable() {
+			otherValues["wl:ko_pool_ver"] = "4"
 		}
 	}
 
@@ -437,6 +437,7 @@ func (g *GameSpySession) login(command common.GameSpyCommand) {
 	)
 	g.acceptOnlineCPUCapability(command)
 	g.acceptPenaltyResetCapability(command)
+	g.acceptInactivityCapability(command)
 }
 
 func (g *GameSpySession) exLogin(command common.GameSpyCommand) {
@@ -458,6 +459,7 @@ func (g *GameSpySession) exLogin(command common.GameSpyCommand) {
 	qr2.SetDeviceAuthenticated(g.User.ProfileId)
 	g.acceptOnlineCPUCapability(command)
 	g.acceptPenaltyResetCapability(command)
+	g.acceptInactivityCapability(command)
 }
 
 func checkPayloadVersion(payloadVer string) bool {

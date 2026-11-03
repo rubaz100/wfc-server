@@ -191,6 +191,7 @@ h2 { font-size: 24px; font-weight: 400; letter-spacing: -.5px; color: #1b587b; t
 .racer-number { display: inline-flex; align-items: center; justify-content: center; width: 25px; height: 25px; flex: 0 0 auto; border-radius: 50%; color: #fff; background: var(--racer-color, #126da5); border: 2px solid #fff; box-shadow: 0 0 0 1px #3b6e8c46, inset 0 1px 2px #ffffff52; font-size: 11px; font-weight: 700; }
 .racer-name { max-width: 150px; overflow: hidden; text-overflow: ellipsis; }
 .race-table .racer-inactive .racer-identity { opacity: .65; }
+.race-table .racer-eliminated { background: rgba(190, 55, 55, .065); }
 .live-seen { margin: 10px 3px 0; }
 .live-map-card { padding: 12px; background: linear-gradient(145deg, #fff, #ecf9f7); }
 .live-course-map { display: block; width: 100%; height: auto; aspect-ratio: 640 / 460; border: 1px solid #bfd8d7; border-radius: 9px; background: radial-gradient(ellipse at 40% 25%, #fbfffb 0, #eff8ec 65%, #e3f2e5 100%); }

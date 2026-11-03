@@ -12,6 +12,9 @@ import (
 func (g *GameSpySession) handleWWFCReport(command common.GameSpyCommand) {
 	for key, value := range command.OtherValues {
 		switch key {
+		case "wl:vs_idle", "wl:vs_low", "wl:vs_progress":
+			g.handleVSWatchdog(key, value)
+			continue
 		case "wl:penalty_ack":
 			g.handlePenaltyResetReport(value)
 			continue
@@ -29,6 +32,14 @@ func (g *GameSpySession) handleWWFCReport(command common.GameSpyCommand) {
 		switch key {
 		default:
 			logging.Error(g.ModuleName, "Unknown record", aurora.Cyan(key).String()+":", aurora.Cyan(value))
+
+		case "wl:speed":
+			// Existing report-first speedometer: hundredths of native speed.
+			// It is diagnostic data, not a server error or authoritative input.
+			speed, err := strconv.ParseUint(value, 10, 32)
+			if g.GameName == "mariokartwii" && err == nil && speed <= 100000 {
+				logging.Info(g.ModuleName, "Kart speed x100:", speed)
+			}
 
 		case "wl:ko_pos", "wl:ko_eliminate", "wl:ko_apply", "wl:ko_spectate", "wl:ko_result":
 			// Informational client diagnostics; authoritative decisions use wl:ko_event.

@@ -25,6 +25,7 @@ var editableConfigTags = map[string]bool{
 	"knockoutEnabled":             true,
 	"knockoutMode":                true,
 	"knockoutEliminationCount":    true,
+	"disableInactivityDisconnect": true,
 }
 
 var xmlTextEscaper = strings.NewReplacer("&", "&amp;", "<", "&lt;", ">", "&gt;")
@@ -50,7 +51,7 @@ func ApplyConfigChanges(fields map[string]string) error {
 		switch tag {
 		case "serverName":
 			updated.ServerName = val
-		case "allowDefaultDolphinKeys", "allowConnectWithoutDeviceID", "enableHttpsExploitWii", "enableHttpsExploitDS", "onlineCPUEnabled", "onlineCPUAutoFill", "knockoutEnabled":
+		case "allowDefaultDolphinKeys", "allowConnectWithoutDeviceID", "enableHttpsExploitWii", "enableHttpsExploitDS", "onlineCPUEnabled", "onlineCPUAutoFill", "knockoutEnabled", "disableInactivityDisconnect":
 			if val != "true" && val != "false" {
 				return fmt.Errorf("invalid %s: %q", tag, val)
 			}
@@ -70,6 +71,8 @@ func ApplyConfigChanges(fields map[string]string) error {
 				updated.OnlineCPUAutoFill = b
 			case "knockoutEnabled":
 				updated.KnockoutEnabled = b
+			case "disableInactivityDisconnect":
+				updated.DisableInactivityDisconnect = b
 			}
 		case "onlineCPUCount":
 			n, err := strconv.Atoi(val)

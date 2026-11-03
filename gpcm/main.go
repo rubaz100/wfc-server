@@ -56,6 +56,7 @@ type GameSpySession struct {
 	CPUVersion           uint32
 	KnockdownPoolVersion uint32
 	PenaltyResetVersion  uint32
+	InactivityVersion    uint32
 
 	ReadBuffer  []byte
 	WriteBuffer string
@@ -103,6 +104,7 @@ func StartServer(reload bool) {
 		"device_authenticated",
 		"reported_bad_packet",
 		"reported_stall",
+		"vs_watchdog",
 		"gpcm_returned_error",
 	})
 }

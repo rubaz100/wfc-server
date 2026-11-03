@@ -25,6 +25,7 @@ func telemetrySource(room racetelemetry.Room, pid uint32, connection uint64) (ra
 		// Plan room identity is reconciled before allowing its frozen owner.
 		cpuRoom, ok := qr2.OnlineCPURoomForProfile(plan.OwnerPID)
 		if ok && cpuRoom.Name == room.Name && cpuRoom.GroupID == room.GroupID {
+			source.PlanEpoch = plan.Epoch
 			source.CPUStart = plan.HumanCount
 			source.CPUCount = plan.CPUCount
 			if plan.KnockoutEnabled {
@@ -102,5 +103,49 @@ func GetRaceTelemetry() []racetelemetry.Race {
 		}
 		active[room.Key()] = owners
 	}
-	return raceTelemetry.Snapshot(time.Now(), active)
+	races := raceTelemetry.Snapshot(time.Now(), active)
+	for i := range races {
+		race := &races[i]
+		cpuRelay.Lock()
+		status, ok := cpuRelay.engine.KnockoutStatusForRoom(race.RoomName, race.GroupID)
+		cpuRelay.Unlock()
+		if !ok || !race.KnockoutEnabled || race.PlanEpoch != status.Epoch ||
+			len(race.Racers) != status.HumanCount+status.CPUCount || race.SeriesID != status.SeriesID {
+			continue
+		}
+		// Apply accepted decisions to the detached observational snapshot. This
+		// keeps elimination badges through delayed finish/position reports.
+		race.SeriesState = status.SeriesState
+		race.Remaining = 0
+		last := -1
+		for j := range race.Racers {
+			racer := &race.Racers[j]
+			var placement uint8
+			if status.KnockoutMode == "race" {
+				if racer.IsCPU && int(racer.ID) >= status.HumanCount {
+					placement = status.CPUPlacements[racer.ID-uint8(status.HumanCount)]
+				} else if !racer.IsCPU {
+					placement = status.HumanPlacements[racer.ProfileID]
+				}
+			}
+			if placement != 0 || status.EliminatedMask&(1<<racer.ID) != 0 {
+				racer.Eliminated = true
+			}
+			if placement == 0xff {
+				racer.Position = 0 // Joined as an unranked spectator.
+			} else if placement != 0 && placement <= 12 {
+				racer.Position = placement
+			}
+			racer.Winner = false
+			if !racer.Eliminated && !racer.Disconnected {
+				race.Remaining++
+				last = j
+			}
+		}
+		if race.Remaining == 1 && last >= 0 && (status.SeriesState == 2 ||
+			(race.Racers[last].Finished && race.Racers[last].FinishMS > 0)) {
+			race.Racers[last].Winner = true
+		}
+	}
+	return races
 }

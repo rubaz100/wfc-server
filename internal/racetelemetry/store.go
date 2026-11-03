@@ -53,6 +53,7 @@ type Source struct {
 	KnockoutEliminationCount int
 	SeriesID                 uint32
 	SeriesRound              int
+	PlanEpoch                uint32
 }
 
 type Point struct {
@@ -108,6 +109,8 @@ type Race struct {
 	KnockoutEliminationCount int       `json:"knockoutEliminationCount,omitempty"`
 	SeriesID                 uint32    `json:"seriesId,omitempty"`
 	SeriesRound              int       `json:"seriesRound,omitempty"`
+	SeriesState              uint8     `json:"seriesState,omitempty"`
+	PlanEpoch                uint32    `json:"-"`
 	KnockdownPool            bool      `json:"knockdownPool"`
 	Remaining                uint8     `json:"remaining"`
 	Seed                     uint32    `json:"seed"`
@@ -171,7 +174,8 @@ func decodeLive(data []byte) (frame, bool) {
 	identities := make(map[[2]uint32]bool)
 	for i := range f.Racers {
 		b := data[LiveHeaderSize+i*RacerSize : LiveHeaderSize+(i+1)*RacerSize]
-		if int(b[0]) != i || b[1]&^byte(31) != 0 || b[8] > 1 || b[9] > data[2] || b[10] != 0 || b[11] != 0 {
+		if int(b[0]) != i || b[1]&^byte(31) != 0 || b[8] > 1 ||
+			(b[9] > data[2] && (b[1]&8 == 0 || b[9] > 12)) || b[10] != 0 || b[11] != 0 {
 			return frame{}, false
 		}
 		r := Racer{ID: b[0], IsCPU: b[1]&1 != 0, Finished: b[1]&2 != 0, Disconnected: b[1]&4 != 0, Eliminated: b[1]&8 != 0, HasPosition: b[1]&16 != 0, Lap: binary.BigEndian.Uint16(b[2:4]), ProfileID: binary.BigEndian.Uint32(b[4:8]), LocalIndex: b[8], Position: b[9], Progress: f32(b[12:16]), X: f32(b[16:20]), Z: f32(b[20:24]), FinishMS: binary.BigEndian.Uint32(b[24:28])}
@@ -242,7 +246,7 @@ func (s *Store) AcceptLive(source Source, data []byte, now time.Time) bool {
 	if continuing && (int32(f.sequence-old.frame.sequence) <= 0 || f.phase < old.frame.phase || f.CourseID != old.frame.CourseID || f.Laps != old.frame.Laps || f.Mirror != old.frame.Mirror || f.Seed != old.frame.Seed || f.KnockoutEnabled != old.frame.KnockoutEnabled || len(f.Racers) != len(old.frame.Racers)) {
 		return false
 	}
-	if continuing && (source.KnockoutMode != old.source.KnockoutMode || source.KnockoutEliminationCount != old.source.KnockoutEliminationCount || source.SeriesID != old.source.SeriesID || source.SeriesRound != old.source.SeriesRound) {
+	if continuing && (source.PlanEpoch != old.source.PlanEpoch || source.KnockoutMode != old.source.KnockoutMode || source.KnockoutEliminationCount != old.source.KnockoutEliminationCount || source.SeriesID != old.source.SeriesID || source.SeriesRound != old.source.SeriesRound) {
 		// A newly prepared plan cannot relabel an older course snapshot.
 		return false
 	}
@@ -299,6 +303,7 @@ func (s *Store) AcceptLive(source Source, data []byte, now time.Time) bool {
 		f.ID = old.frame.ID
 	}
 	f.RoomName = source.Room.Name
+	f.PlanEpoch = source.PlanEpoch
 	f.KnockdownPool = source.Room.KnockdownPool
 	// Mode/series identity comes from the authenticated committed plan. The
 	// observational packet retains protocol 1 and cannot invent these fields.
